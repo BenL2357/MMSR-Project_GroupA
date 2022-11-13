@@ -206,7 +206,7 @@ if __name__ == "__main__":
         index2 = 0
         for val in dummy:
             if val == 1:
-                IDCG += relevance[index2] / (np.log2(index2 + 2))
+                IDCG += relevance[index2] / (np.log2(index2 + 2)) # its fucked
             index2 += 1
 
         return DCG / IDCG
