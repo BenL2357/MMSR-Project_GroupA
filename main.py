@@ -15,15 +15,17 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 import csv
 
-sought_line = 0
 
-with open("/resources/id_lyrics_tf-idf_mmsr.tsv") as file:
-    tsv_file = csv.reader(file, delimiter="\t")
-    for line in tsv_file:
-        if(line[0] == "kv6loraw3A6MdnXd"):
-            print(type(line))
-            sought_line = line
-            break
+if __name__ == "__main__":
+    sought_line = 0
 
-    for line in tsv_file:
-        print(cosine_similarity(np.array(sought_line[1:]), np.transpose(np.array(line[1:]))))
+    with open("./resources/id_lyrics_tf-idf_mmsr.tsv") as file:
+        tsv_file = csv.reader(file, delimiter="\t")
+        for line in tsv_file:
+            if(line[0] == "kv6loraw3A6MdnXd"):
+                print(line)
+                sought_line = line
+                break
+
+    #for line in tsv_file:
+    #    print(cosine_similarity(np.array(sought_line[1:]), np.transpose(np.array(line[1:]))))
