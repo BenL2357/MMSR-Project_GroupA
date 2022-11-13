@@ -16,6 +16,21 @@ if __name__ == "__main__":
                 sought_line = line
                 break
 
+    print("Lol other stuff --------------------------------------------------\n")
+
+    with open("./resources/id_lyrics_tf-idf_mmsr.tsv") as file:
+        tsv_file = csv.reader(file, delimiter="\t")
+        for line in tsv_file:
+            for i in range(0,10):
+
+            
+            #if cosine_similarity(np.array([sought_line[1:]]), np.array([line[1:]])) == np.array([[1.0]]):
+            #    print(line)
+
+
+
+
+
     # region dead code
     #for line in tsv_file:
     #    print(cosine_similarity(np.array(sought_line[1:]), np.transpose(np.array(line[1:]))))
