@@ -10,6 +10,8 @@ if __name__ == "__main__":
 
     with open("./resources/id_lyrics_tf-idf_mmsr.tsv") as file:
         tsv_file = csv.reader(file, delimiter="\t")
+        # skip first line as is is the string headers
+        next(tsv_file)
         for line in tsv_file:
             if line[0] == input_query:
                 print(line)
@@ -20,12 +22,14 @@ if __name__ == "__main__":
 
     with open("./resources/id_lyrics_tf-idf_mmsr.tsv") as file:
         tsv_file = csv.reader(file, delimiter="\t")
+        # skip first line as is is the string headers
+        next(tsv_file)
         for line in tsv_file:
-            for i in range(0,10):
+            if cosine_similarity(np.array([sought_line[1:]]), np.array([line[1:]])) == np.array([1.0]):
+                print(line)
 
-            
-            #if cosine_similarity(np.array([sought_line[1:]]), np.array([line[1:]])) == np.array([[1.0]]):
-            #    print(line)
+
+
 
 
 
@@ -35,6 +39,8 @@ if __name__ == "__main__":
     #for line in tsv_file:
     #    print(cosine_similarity(np.array(sought_line[1:]), np.transpose(np.array(line[1:]))))
 
+    # if cosine_similarity(np.array([sought_line[1:]]), np.array([line[1:]])) == np.array([[1.0]]):
+    #    print(line)
 
 
         # kv6loraw3A6MdnXd never gonna give you up
