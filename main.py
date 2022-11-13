@@ -11,7 +11,7 @@ if __name__ == "__main__":
     with open("./resources/id_lyrics_tf-idf_mmsr.tsv") as file:
         tsv_file = csv.reader(file, delimiter="\t")
         for line in tsv_file:
-            if(line[0] == input_query):
+            if line[0] == input_query:
                 print(line)
                 sought_line = line
                 break
