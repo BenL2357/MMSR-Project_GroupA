@@ -144,7 +144,8 @@ if __name__ == "__main__":
 
         nsongs = len(all_songs)
 
-        return precision_sum/nsongs, mrr_sum/nsongs, ndcg_sum_10/nsongs, ndcg_sum_100/nsongs
+        return precision_sum / nsongs, mrr_sum / nsongs, ndcg_sum_10 / nsongs, ndcg_sum_100 / nsongs
+
 
     # endregion
 
@@ -345,10 +346,8 @@ if __name__ == "__main__":
 
     # endregion
 
-    # precision_mean, mrr_mean, ndcg10_mean, ndcg100_mean = performance_metrics()
-    # print(f"Precision: {precision_mean}\n")
-    # print(f"MRR: {mrr_mean}\n")
-    # print(f"NDCG10 {ndcg10_mean}\n")
-    # print(f"NDCG100 {ndcg100_mean}\n")
-
-    print("Precision: %d , MRR: %d, nDCG10: %d, nDCG100: %d " % performance_metrics_s())
+    precision_mean, mrr_mean, ndcg10_mean, ndcg100_mean = performance_metrics_s()
+    print(f"Precision: {precision_mean}\n")
+    print(f"MRR: {mrr_mean}\n")
+    print(f"NDCG10 {ndcg10_mean}\n")
+    print(f"NDCG100 {ndcg100_mean}\n")
