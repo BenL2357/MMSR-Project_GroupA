@@ -1,3 +1,4 @@
+import ast
 import csv
 from ast import literal_eval
 
@@ -8,23 +9,148 @@ from sklearn.metrics.pairwise import euclidean_distances
 
 if __name__ == "__main__":
 
-    def sim_query2(input_query, nvals: int = 100):
+    # region Memory Inefficient but fast
 
-        df = pd.read_csv('./resources/id_lyrics_tf-idf_mmsr.tsv', delimiter="\t", index_col="id")
-        df2 = pd.read_csv('./resources/id_bert_mmsr.tsv', delimiter="\t", index_col="id")
+    def sim_query_m(input_query: str, nvals: int = 100):
 
-        similarity = cosine_similarity(df.loc[[input_query]], df)[0] * 0.5 + \
-                     (1 / (1 + euclidean_distances(df2.loc[[input_query]], df2, squared=True)[
+        tf_idf_df = pd.read_csv('./resources/id_lyrics_tf-idf_mmsr.tsv', delimiter="\t", index_col="id")
+        bert_df = pd.read_csv('./resources/id_bert_mmsr.tsv', delimiter="\t", index_col="id")
+
+        similarity = cosine_similarity(tf_idf_df.loc[[input_query]], tf_idf_df)[0] * 0.5 + \
+                     (1 / (1 + euclidean_distances(bert_df.loc[[input_query]], bert_df, squared=True)[
                          0])) * 0.5
 
-        res = pd.DataFrame(index=df.index.tolist())
+        res = pd.DataFrame(index=tf_idf_df.index.tolist())
+        res.index.name = "id"
         res["similarity"] = similarity
         res.drop([input_query], axis=0, inplace=True)
 
         return res.nlargest(nvals, "similarity")
 
 
+    def precision_m(input_query: str, results):
+        genres = pd.read_csv('./resources/id_genres_mmsr.tsv', delimiter="\t", index_col="id")
+        genres["genre"] = genres["genre"].apply(ast.literal_eval)
+
+        input_genres = genres.loc[input_query]["genre"]
+
+        hits = 0
+        for index, row in results.iterrows():
+            if len(np.intersect1d(genres.loc[index]["genre"], input_genres)) >= 1:
+                hits += 1
+
+        return hits / len(results)
+
+
+    def mrr_m(input_query: str, results):
+
+        genres = pd.read_csv('./resources/id_genres_mmsr.tsv', delimiter="\t", index_col="id")
+        genres["genre"] = genres["genre"].apply(ast.literal_eval)
+
+        input_genres = genres.loc[input_query]["genre"]
+
+        tries = 1
+        for index, row in results.iterrows():
+            if len(np.intersect1d(genres.loc[index]["genre"], input_genres)) >= 1:
+                tries += 1
+            else:
+                break
+
+        return 1 / tries
+
+
+    # endregion
+
+    # region Memory Efficient and fast
+
+    def sim_query_s(tfidf_df, bert_df, input_query: str, nvals: int = 100):
+
+        similarity = cosine_similarity(tfidf_df.loc[[input_query]], tfidf_df)[0] * 0.5 + \
+                     (1 / (1 + euclidean_distances(bert_df.loc[[input_query]], bert_df, squared=True)[
+                         0])) * 0.5
+
+        res = pd.DataFrame(index=tfidf_df.index.tolist())
+        res.index.name = "id"
+        res["similarity"] = similarity
+        res.drop([input_query], axis=0, inplace=True)
+
+        return res.nlargest(nvals, "similarity")
+
+
+    def precision_s(genres, input_query: str, results):
+
+        input_genres = genres.loc[input_query]["genre"]
+
+        hits = 0
+        for index, row in results.iterrows():
+            if len(np.intersect1d(genres.loc[index]["genre"], input_genres)) >= 1:
+                hits += 1
+
+        return hits / len(results)
+
+
+    def mrr_s(genres, input_query: str, results):
+
+        input_genres = genres.loc[input_query]["genre"]
+
+        tries = 1
+        for index, row in results.iterrows():
+            if len(np.intersect1d(genres.loc[index]["genre"], input_genres)) >= 1:
+                tries += 1
+            else:
+                break
+
+        return 1 / tries
+
+
+    def nDCG_ms(result, p: int):
+
+        similarities_ordered = result["similarity"].tolist()
+        result.sort_values(by="id", inplace=True)
+        similarities_unordered = result["similarity"].tolist()
+
+        DCG = 0
+        IDCG = 0
+
+        for i in range(0, p):
+            DCG += (pow(2, similarities_unordered[i]) - 1) / np.log2(i + 2)
+            IDCG += (pow(2, similarities_ordered[i]) - 1) / (np.log2(i + 2))
+
+        return DCG / IDCG
+
+
+    def performance_metrics_s():
+        precision_sum = 0
+        mrr_sum = 0
+        ndcg_sum_10 = 0
+        ndcg_sum_100 = 0
+
+        tfidf_df = pd.read_csv('./resources/id_lyrics_tf-idf_mmsr.tsv', delimiter="\t", index_col="id")
+        bert_df = pd.read_csv('./resources/id_bert_mmsr.tsv', delimiter="\t", index_col="id")
+        genres = pd.read_csv('./resources/id_genres_mmsr.tsv', delimiter="\t", index_col="id")
+
+        genres["genre"] = genres["genre"].apply(ast.literal_eval)
+
+        all_songs = tfidf_df.index.tolist()
+
+        all_songs = all_songs[0:100]
+
+        for song in all_songs:
+            results = sim_query_s(tfidf_df, bert_df, song)
+            precision_sum += precision_s(genres, song, results)
+            mrr_sum += mrr_s(genres, song, results)
+            ndcg_sum_10 += nDCG_ms(results, 10)
+            ndcg_sum_100 += nDCG_ms(results, 100)
+
+        nsongs = len(all_songs)
+
+        return precision_sum/nsongs, mrr_sum/nsongs, ndcg_sum_10/nsongs, ndcg_sum_100/nsongs
+
+    # endregion
+
+    # region Memory Efficient but slow
     def sim_query(input_query: str, nvals: int = 100):
+
         sought_line_cosine = None
         sought_line_euclidean = None
 
@@ -159,7 +285,7 @@ if __name__ == "__main__":
         return hits / len(results)
 
 
-    def MRR(input_query: str, results: [str]):
+    def mrr(input_query: str, results: [str]):
 
         genres = []
         input_genres = []
@@ -209,7 +335,7 @@ if __name__ == "__main__":
             result = sim_query_with_relevance(query_string)
             result_similarity_score = [x[1] for x in result]
             precision_sum += precision(query_string, result_similarity_score)
-            mrr_sum += MRR(query_string, result_similarity_score)
+            mrr_sum += mrr(query_string, result_similarity_score)
             ndcg_sum_10 += nDCG(result, 10)
             ndcg_sum_100 += nDCG(result, 100)
 
@@ -217,10 +343,12 @@ if __name__ == "__main__":
             query_song_strings), ndcg_sum_100 / len(query_song_strings)
 
 
+    # endregion
+
     # precision_mean, mrr_mean, ndcg10_mean, ndcg100_mean = performance_metrics()
     # print(f"Precision: {precision_mean}\n")
     # print(f"MRR: {mrr_mean}\n")
     # print(f"NDCG10 {ndcg10_mean}\n")
     # print(f"NDCG100 {ndcg100_mean}\n")
 
-    print(sim_query2("J4iv1rHSF2ky0K4n"))
+    print("Precision: %d , MRR: %d, nDCG10: %d, nDCG100: %d " % performance_metrics_s())
