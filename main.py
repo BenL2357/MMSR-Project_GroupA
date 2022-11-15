@@ -2,10 +2,27 @@ import csv
 from ast import literal_eval
 
 import numpy as np
+import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.metrics.pairwise import euclidean_distances
 
 if __name__ == "__main__":
+
+    def sim_query2(input_query, nvals: int = 100):
+
+        df = pd.read_csv('./resources/id_lyrics_tf-idf_mmsr.tsv', delimiter="\t", index_col="id")
+        df2 = pd.read_csv('./resources/id_bert_mmsr.tsv', delimiter="\t", index_col="id")
+
+        similarity = cosine_similarity(df.loc[[input_query]], df)[0] * 0.5 + \
+                     (1 / (1 + euclidean_distances(df2.loc[[input_query]], df2, squared=True)[
+                         0])) * 0.5
+
+        res = pd.DataFrame(index=df.index.tolist())
+        res["similarity"] = similarity
+        res.drop([input_query], axis=0, inplace=True)
+
+        return res.nlargest(nvals, "similarity")
+
 
     def sim_query(input_query: str, nvals: int = 100):
         sought_line_cosine = None
@@ -142,9 +159,6 @@ if __name__ == "__main__":
         return hits / len(results)
 
 
-    #    def genre_as_set(line: str):
-    #        return set(literal_eval(line))
-
     def MRR(input_query: str, results: [str]):
 
         genres = []
@@ -186,7 +200,7 @@ if __name__ == "__main__":
 
 
     def performance_metrics():
-        query_song_strings = ["D6xz7HXyidDcseg4", "3xza64DGjULmd7ws", "nl0KhzV5YRUzlbQy"]
+        query_song_strings = ["J4iv1rHSF2ky0K4n", "2YKPm6gHu6CRWeyx"]
         precision_sum = 0
         mrr_sum = 0
         ndcg_sum_10 = 0
@@ -199,11 +213,14 @@ if __name__ == "__main__":
             ndcg_sum_10 += nDCG(result, 10)
             ndcg_sum_100 += nDCG(result, 100)
 
-        return precision_sum / len(query_song_strings), mrr_sum / len(query_song_strings), ndcg_sum_10 / len(query_song_strings), ndcg_sum_100 / len(query_song_strings)
+        return precision_sum / len(query_song_strings), mrr_sum / len(query_song_strings), ndcg_sum_10 / len(
+            query_song_strings), ndcg_sum_100 / len(query_song_strings)
 
-    precision_mean, mrr_mean, ndcg10_mean, ndcg100_mean = performance_metrics()
-    print(f"Precision: {precision_mean}\n")
-    print(f"MRR: {mrr_mean}\n")
-    print(f"NDCG10 {ndcg10_mean}\n")
-    print(f"NDCG100 {ndcg100_mean}\n")
-    print(nDCG(sim_query_with_relevance("kv6loraw3A6MdnXd"), 10))
+
+    # precision_mean, mrr_mean, ndcg10_mean, ndcg100_mean = performance_metrics()
+    # print(f"Precision: {precision_mean}\n")
+    # print(f"MRR: {mrr_mean}\n")
+    # print(f"NDCG10 {ndcg10_mean}\n")
+    # print(f"NDCG100 {ndcg100_mean}\n")
+
+    print(sim_query2("J4iv1rHSF2ky0K4n"))
