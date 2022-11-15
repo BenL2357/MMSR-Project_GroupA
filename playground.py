@@ -17,21 +17,8 @@ if __name__ == "__main__":
     cosines["h"] = 8
     cosines["i"] = 9
     cosines["j"] = 10
+    results = sorted(cosines.items(), key=lambda kv: kv[1],
+                              reverse=True)
+    print([x[1] for x in sorted(results, key=lambda x: x[0])])
 
-    genres = []
-    input_genres = []
-
-    with open("./resources/id_genres_mmsr.tsv") as file:
-        tsv_file = csv.reader(file, delimiter="\t")
-        next(tsv_file)
-
-        for i in range(3, 4):
-
-            line = next(tsv_file)
-            line = next(tsv_file)
-            line = next(tsv_file)
-            line = next(tsv_file)
-            print(line)
-            input_genres.append(set(literal_eval(line[1])))
-
-    print(input_genres)
+    relevance_unordered = [x[1] for x in sorted(results, key=lambda x: x[0])]

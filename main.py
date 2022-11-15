@@ -171,42 +171,37 @@ if __name__ == "__main__":
         return 1 / tries
 
 
-    def nDCG(input_query: str, results: [(str, float)], p: int):
+    def nDCG(results: [(str, float)], p: int):
         relevance = [x[1] for x in results]
-        test_result = [x[0] for x in results]
+        relevance_unordered = [x[1] for x in sorted(results, key=lambda x: x[0])]
 
-        DCG = relevance[0]
+        DCG = 0
 
-        for i in range(1, p + 1):
-            DCG += relevance[i] / np.log2(i + 1)
-
-        genres = []
-        input_genres = []
-
-
-        with open("./resources/id_genres_mmsr.tsv") as file:
-            tsv_file = csv.reader(file, delimiter="\t")
-            # skip first line as it is the string headers
-            next(tsv_file)
-            for line in tsv_file:
-                if line[0] == input_query:
-                    input_genres = set(literal_eval(line[1]))
-                if line[0] in test_result:
-                    genres.append(set(literal_eval(line[1])))
-
-        dummy = np.zeros(p)
-        index = 0
-
-        for val in genres[:p]:
-            if len(input_genres & val) != 0:
-                dummy[index] = 1
-            index += 1
+        for i in range(0, p + 1):
+            DCG += (pow(2, relevance_unordered[i]) - 1) / np.log2(i + 2)
 
         IDCG = 0
         index2 = 0
-        for val in dummy:
-            if val == 1:
-                IDCG += relevance[index2] / (np.log2(index2 + 2)) # its fucked
+        for val in relevance:
+            IDCG += (pow(2, val) - 1) / (np.log2(index2 + 2))
             index2 += 1
 
         return DCG / IDCG
+
+
+    def performance_metrics():
+        query_song_strings = ["D6xz7HXyidDcseg4", "3xza64DGjULmd7ws", "nl0KhzV5YRUzlbQy", "zCZAncx2kD58UGGA",
+                              "3yOJLIpOiYvqCKAm",
+                              "4JEHIYg24AFHVEe4", "tXhoFYt3gUf38kHN", "zZl3n47f7kW5ygrv", "J4iv1rHSF2ky0K4n",
+                              "2YKPm6gHu6CRWeyx"]
+        precision_sum = 0
+        mrr_sum = 0
+        for query_string in query_song_strings:
+            result = sim_query(query_string)
+            precision_sum += precision(query_string, result)
+            mrr_sum += MRR(query_string, result)
+
+        return precision_sum / len(query_song_strings), mrr_sum / len(query_song_strings)
+
+
+    print(nDCG(sim_query_with_relevance("kv6loraw3A6MdnXd"), 10))
