@@ -176,24 +176,17 @@ if __name__ == "__main__":
         relevance_unordered = [x[1] for x in sorted(results, key=lambda x: x[0])]
 
         DCG = 0
-
-        for i in range(0, p + 1):
-            DCG += (pow(2, relevance_unordered[i]) - 1) / np.log2(i + 2)
-
         IDCG = 0
-        index2 = 0
-        for val in relevance:
-            IDCG += (pow(2, val) - 1) / (np.log2(index2 + 2))
-            index2 += 1
+
+        for i in range(0, p):
+            DCG += (pow(2, relevance_unordered[i]) - 1) / np.log2(i + 2)
+            IDCG += (pow(2, relevance[i]) - 1) / (np.log2(i + 2))
 
         return DCG / IDCG
 
 
     def performance_metrics():
-        query_song_strings = ["D6xz7HXyidDcseg4", "3xza64DGjULmd7ws", "nl0KhzV5YRUzlbQy", "zCZAncx2kD58UGGA",
-                              "3yOJLIpOiYvqCKAm",
-                              "4JEHIYg24AFHVEe4", "tXhoFYt3gUf38kHN", "zZl3n47f7kW5ygrv", "J4iv1rHSF2ky0K4n",
-                              "2YKPm6gHu6CRWeyx"]
+        query_song_strings = ["D6xz7HXyidDcseg4", "3xza64DGjULmd7ws", "nl0KhzV5YRUzlbQy"]
         precision_sum = 0
         mrr_sum = 0
         ndcg_sum_10 = 0
