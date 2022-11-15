@@ -193,9 +193,9 @@ if __name__ == "__main__":
         ndcg_sum_100 = 0
         for query_string in query_song_strings:
             result = sim_query_with_relevance(query_string)
-            result_similarity_score = [x[1] for x in result]
-            precision_sum += precision(query_string, result_similarity_score)
-            mrr_sum += MRR(query_string, result_similarity_score)
+            result_id = [x[0] for x in result]
+            precision_sum += precision(query_string, result_id)
+            mrr_sum += MRR(query_string, result_id)
             ndcg_sum_10 += nDCG(result, 10)
             ndcg_sum_100 += nDCG(result, 100)
 
