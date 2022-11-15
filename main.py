@@ -208,5 +208,9 @@ if __name__ == "__main__":
 
         return precision_sum / len(query_song_strings), mrr_sum / len(query_song_strings), ndcg_sum_10 / len(query_song_strings), ndcg_sum_100 / len(query_song_strings)
 
-
+    precision_mean, mrr_mean, ndcg10_mean, ndcg100_mean = performance_metrics()
+    print(f"Precision: {precision_mean}\n")
+    print(f"MRR: {mrr_mean}\n")
+    print(f"NDCG10 {ndcg10_mean}\n")
+    print(f"NDCG100 {ndcg100_mean}\n")
     print(nDCG(sim_query_with_relevance("kv6loraw3A6MdnXd"), 10))
