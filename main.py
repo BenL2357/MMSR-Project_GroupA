@@ -196,12 +196,17 @@ if __name__ == "__main__":
                               "2YKPm6gHu6CRWeyx"]
         precision_sum = 0
         mrr_sum = 0
+        ndcg_sum_10 = 0
+        ndcg_sum_100 = 0
         for query_string in query_song_strings:
-            result = sim_query(query_string)
-            precision_sum += precision(query_string, result)
-            mrr_sum += MRR(query_string, result)
+            result = sim_query_with_relevance(query_string)
+            result_similarity_score = [x[1] for x in result]
+            precision_sum += precision(query_string, result_similarity_score)
+            mrr_sum += MRR(query_string, result_similarity_score)
+            ndcg_sum_10 += nDCG(result, 10)
+            ndcg_sum_100 += nDCG(result, 100)
 
-        return precision_sum / len(query_song_strings), mrr_sum / len(query_song_strings)
+        return precision_sum / len(query_song_strings), mrr_sum / len(query_song_strings), ndcg_sum_10 / len(query_song_strings), ndcg_sum_100 / len(query_song_strings)
 
 
     print(nDCG(sim_query_with_relevance("kv6loraw3A6MdnXd"), 10))
