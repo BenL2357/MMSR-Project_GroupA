@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.metrics.pairwise import euclidean_distances
+from sklearn.metrics.pairwise import rbf_kernel
 from sklearn.decomposition import PCA
 
 if __name__ == "__main__":
@@ -76,7 +77,11 @@ if __name__ == "__main__":
         res["similarity"] = similarity
         res.drop([input_query], axis=0, inplace=True)
 
-        return res.nlargest(nvals, "similarity")
+        res_sim = res[res["similarity"] > 0.55]
+        if len(res_sim) < nvals:
+            res_sim = res.nlargest(nvals, "similarity")
+
+        return res_sim
 
     def sim_query_s_video(video_feature_vector, input_query: str, nvals: int = 100):
         similarity = cosine_similarity(video_feature_vector.loc[[input_query]], video_feature_vector)[0]
@@ -108,9 +113,9 @@ if __name__ == "__main__":
         tries = 1
         for index, row in results.iterrows():
             if len(np.intersect1d(genres.loc[index]["genre"], input_genres)) >= 1:
-                tries += 1
-            else:
                 break
+            else:
+                tries += 1
 
         return 1 / tries
 
@@ -174,7 +179,7 @@ if __name__ == "__main__":
 
         all_songs = tfidf_df.index.tolist()
 
-        all_songs = all_songs[0:1000]
+        all_songs = all_songs[0:100]
 
         for song in all_songs:
             results = sim_query_s(tfidf_df, bert_df, song)
@@ -200,7 +205,7 @@ if __name__ == "__main__":
         ndcg_sum_100 = 0
 
         all_songs = video_features.index.tolist()
-        all_songs = all_songs[0:10]
+        all_songs = all_songs[0:100]
 
         for song in all_songs:
             results = sim_query_s_video(video_features, song)
@@ -216,15 +221,19 @@ if __name__ == "__main__":
 
     def initialize():
         tfidf_df = pd.read_csv('./resources/id_lyrics_tf-idf_mmsr.tsv', delimiter="\t", index_col="id")
-        bert_df = pd.read_csv('./resources/id_bert_mmsr.tsv', delimiter="\t", index_col="id")
+        bert_df = pd.read_csv('./resources/id_lyrics_bert_mmsr.tsv', delimiter="\t", index_col="id")
         genres = pd.read_csv('./resources/id_genres_mmsr.tsv', delimiter="\t", index_col="id")
-        video_features_resnet = pd.read_csv('./resources/id_resnet_mmsr.tsv', delimiter="\t", index_col="id")
-        pca = PCA(n_components=512)
-        video_features_resnet = pca.fit_transform(video_features_resnet)
-
-
+        """
+        video_features_resnet_output = pd.read_csv('./resources/id_resnet_mmsr.tsv', delimiter="\t", index_col="id")
+        df_index = video_features_resnet_output.index
+        pca = PCA(n_components=2)
+        video_features_resnet_data = pca.fit_transform(video_features_resnet_output)
+        video_features_resnet = pd.DataFrame(data=video_features_resnet_data, index=df_index)
+        video_features_resnet.index.name = "id"
+        """
         genres["genre"] = genres["genre"].apply(ast.literal_eval)
-        return tfidf_df, bert_df, genres, video_features_resnet
+
+        return tfidf_df, bert_df, genres, bert_df
 
 
     if __name__ == "__main__":
@@ -238,8 +247,8 @@ if __name__ == "__main__":
               f"Genre frequency to genre count: {genre_dict_genre_frequency}\n"
               f"Average genres per song: {average_genres_song:.4f}\n")
 
-        performance_metrics_s_video(video_features_resnet, genres)
-        """
+        #performance_metrics_s_video(video_features_resnet, genres)
+
         precision_mean, mrr_mean, ndcg10_mean, ndcg100_mean, precision_mean_bl, mrr_mean_bl, ndcg10_mean_bl, ndcg100_mean_bl = performance_metrics_s(tfidf_df, bert_df, genres)
         print(f"Precision: {precision_mean}\n")
         print(f"MRR: {mrr_mean}\n")
@@ -250,7 +259,7 @@ if __name__ == "__main__":
         print(f"MRR Baseline: {mrr_mean_bl}\n")
         print(f"NDCG10 Baseline: {ndcg10_mean_bl}\n")
         print(f"NDCG100 Baseline: {ndcg100_mean_bl}\n")
-        """
+
 
 
     # endregion
