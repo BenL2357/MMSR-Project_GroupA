@@ -1,4 +1,5 @@
 import ast
+import collections
 import csv
 from ast import literal_eval
 
@@ -6,6 +7,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.metrics.pairwise import euclidean_distances
+from sklearn.decomposition import PCA
 
 if __name__ == "__main__":
 
@@ -76,6 +78,16 @@ if __name__ == "__main__":
 
         return res.nlargest(nvals, "similarity")
 
+    def sim_query_s_video(video_feature_vector, input_query: str, nvals: int = 100):
+        similarity = cosine_similarity(video_feature_vector.loc[[input_query]], video_feature_vector)[0]
+
+        res = pd.DataFrame(index=tfidf_df.index.tolist())
+        res.index.name = "id"
+        res["similarity"] = similarity
+        res.drop([input_query], axis=0, inplace=True)
+
+        return res.nlargest(nvals, "similarity")
+
 
     def precision_s(genres, input_query: str, results):
 
@@ -116,9 +128,6 @@ if __name__ == "__main__":
                 relevance_scores[iter_index] = 1
             iter_index += 1
 
-
-
-
         DCG = relevance_scores[0]
         IDCG = 1
 
@@ -129,32 +138,119 @@ if __name__ == "__main__":
         return DCG / IDCG
 
 
-    def performance_metrics_s():
+    def get_genre_distribution(genres):
+        genre_dict = dict()
+
+        for song_genres in genres["genre"]:
+            for genre in song_genres:
+                if genre in genre_dict:
+                    genre_dict[genre] += 1
+                else:
+                    genre_dict[genre] = 1
+
+        sorted_genre_dict = {k: v for k, v in sorted(genre_dict.items(), key=lambda item: item[1], reverse=True)}
+        return sorted_genre_dict
+
+
+    def avg_count_sharing_one_genre(genres):
+        count = 0
+        for genre_1 in genres["genre"]:
+            for genre_2 in genres["genre"]:
+                if len(np.intersect1d(genre_2, genre_1)) >= 1:
+                    count += 1
+        return count / len(genres)
+
+
+    def performance_metrics_s(tfidf_df, bert_df, genres):
         precision_sum = 0
         mrr_sum = 0
         ndcg_sum_10 = 0
         ndcg_sum_100 = 0
 
-        tfidf_df = pd.read_csv('./resources/id_lyrics_tf-idf_mmsr.tsv', delimiter="\t", index_col="id")
-        bert_df = pd.read_csv('./resources/id_bert_mmsr.tsv', delimiter="\t", index_col="id")
-        genres = pd.read_csv('./resources/id_genres_mmsr.tsv', delimiter="\t", index_col="id")
-
-        genres["genre"] = genres["genre"].apply(ast.literal_eval)
+        precision_sum_bl = 0
+        mrr_sum_bl = 0
+        ndcg_sum_10_bl = 0
+        ndcg_sum_100_bl = 0
 
         all_songs = tfidf_df.index.tolist()
 
-        all_songs = all_songs[0:100]
+        all_songs = all_songs[0:1000]
 
         for song in all_songs:
             results = sim_query_s(tfidf_df, bert_df, song)
+            random_results = tfidf_df.sample(n=100)
+            # query values
+            precision_sum += precision_s(genres, song, results)
+            mrr_sum += mrr_s(genres, song, results)
+            ndcg_sum_10 += nDCG_ms(results, genres, song, 10)
+            ndcg_sum_100 += nDCG_ms(results, genres, song, 100)
+            # baseline values
+            precision_sum_bl += precision_s(genres, song, random_results)
+            mrr_sum_bl += mrr_s(genres, song, random_results)
+            ndcg_sum_10_bl += nDCG_ms(random_results, genres, song, 10)
+            ndcg_sum_100_bl += nDCG_ms(random_results, genres, song, 100)
+
+        nsongs = len(all_songs)
+
+        return precision_sum / nsongs, mrr_sum / nsongs, ndcg_sum_10 / nsongs, ndcg_sum_100 / nsongs, precision_sum_bl / nsongs, mrr_sum_bl / nsongs, ndcg_sum_10_bl / nsongs, ndcg_sum_100_bl / nsongs
+    def performance_metrics_s_video(video_features,genres):
+        precision_sum = 0
+        mrr_sum = 0
+        ndcg_sum_10 = 0
+        ndcg_sum_100 = 0
+
+        all_songs = video_features.index.tolist()
+        all_songs = all_songs[0:10]
+
+        for song in all_songs:
+            results = sim_query_s_video(video_features, song)
             precision_sum += precision_s(genres, song, results)
             mrr_sum += mrr_s(genres, song, results)
             ndcg_sum_10 += nDCG_ms(results, genres, song, 10)
             ndcg_sum_100 += nDCG_ms(results, genres, song, 100)
 
-        nsongs = len(all_songs)
+        print(f"{precision_sum/len(all_songs)}\n")
+        print(f"{mrr_sum / len(all_songs)}\n")
+        print(f"{ndcg_sum_10 / len(all_songs)}\n")
+        print(f"{ndcg_sum_100 / len(all_songs)}\n")
 
-        return precision_sum / nsongs, mrr_sum / nsongs, ndcg_sum_10 / nsongs, ndcg_sum_100 / nsongs
+    def initialize():
+        tfidf_df = pd.read_csv('./resources/id_lyrics_tf-idf_mmsr.tsv', delimiter="\t", index_col="id")
+        bert_df = pd.read_csv('./resources/id_bert_mmsr.tsv', delimiter="\t", index_col="id")
+        genres = pd.read_csv('./resources/id_genres_mmsr.tsv', delimiter="\t", index_col="id")
+        video_features_resnet = pd.read_csv('./resources/id_resnet_mmsr.tsv', delimiter="\t", index_col="id")
+        pca = PCA(n_components=512)
+        video_features_resnet = pca.fit_transform(video_features_resnet)
+
+
+        genres["genre"] = genres["genre"].apply(ast.literal_eval)
+        return tfidf_df, bert_df, genres, video_features_resnet
+
+
+    if __name__ == "__main__":
+        tfidf_df, bert_df, genres, video_features_resnet = initialize()
+        genre_dict = get_genre_distribution(genres)
+        genre_dict_frequency = {k: round(v / len(genres), 4) for k, v in genre_dict.items()}
+        genre_dict_genre_frequency = {k: round(v / sum(genre_dict.values()), 4) for k, v in genre_dict.items()}
+        average_genres_song = sum(genre_dict.values()) / len(genres)
+        print(f"Genre: {genre_dict}\nGenre count: {len(genre_dict)}\n"
+              f"Genre frequency to song count: {genre_dict_frequency}\n"
+              f"Genre frequency to genre count: {genre_dict_genre_frequency}\n"
+              f"Average genres per song: {average_genres_song:.4f}\n")
+
+        performance_metrics_s_video(video_features_resnet, genres)
+        """
+        precision_mean, mrr_mean, ndcg10_mean, ndcg100_mean, precision_mean_bl, mrr_mean_bl, ndcg10_mean_bl, ndcg100_mean_bl = performance_metrics_s(tfidf_df, bert_df, genres)
+        print(f"Precision: {precision_mean}\n")
+        print(f"MRR: {mrr_mean}\n")
+        print(f"NDCG10 {ndcg10_mean}\n")
+        print(f"NDCG100 {ndcg100_mean}\n")
+        print(f"Baseline Metric: \n")
+        print(f"Precision Baseline: {precision_mean_bl}\n")
+        print(f"MRR Baseline: {mrr_mean_bl}\n")
+        print(f"NDCG10 Baseline: {ndcg10_mean_bl}\n")
+        print(f"NDCG100 Baseline: {ndcg100_mean_bl}\n")
+        """
 
 
     # endregion
@@ -353,11 +449,4 @@ if __name__ == "__main__":
         return precision_sum / len(query_song_strings), mrr_sum / len(query_song_strings), ndcg_sum_10 / len(
             query_song_strings), ndcg_sum_100 / len(query_song_strings)
 
-
     # endregion
-
-    precision_mean, mrr_mean, ndcg10_mean, ndcg100_mean = performance_metrics_s()
-    print(f"Precision: {precision_mean}\n")
-    print(f"MRR: {mrr_mean}\n")
-    print(f"NDCG10 {ndcg10_mean}\n")
-    print(f"NDCG100 {ndcg100_mean}\n")
