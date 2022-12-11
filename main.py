@@ -103,18 +103,28 @@ if __name__ == "__main__":
         return 1 / tries
 
 
-    def nDCG_ms(result, p: int):
+    def nDCG_ms(results, genres, input_query: str, p: int):
 
-        similarities_ordered = result["similarity"].tolist()
-        result.sort_values(by="id", inplace=True)
-        similarities_unordered = result["similarity"].tolist()
+        input_genres = genres.loc[input_query]["genre"]
+        relevance_scores = np.zeros((p))
 
-        DCG = 0
-        IDCG = 0
+        iter_index = 0
+        for index, row in results.iterrows():
+            if iter_index >= p:
+                break
+            if len(np.intersect1d(genres.loc[index]["genre"], input_genres)) >= 1:
+                relevance_scores[iter_index] = 1
+            iter_index += 1
 
-        for i in range(0, p):
-            DCG += (pow(2, similarities_unordered[i]) - 1) / np.log2(i + 2)
-            IDCG += (pow(2, similarities_ordered[i]) - 1) / (np.log2(i + 2))
+
+
+
+        DCG = relevance_scores[0]
+        IDCG = 1
+
+        for i in range(1, p):
+            DCG += relevance_scores[i] / np.log2(i + 1)
+            IDCG += 1 / np.log2(i + 1)
 
         return DCG / IDCG
 
@@ -139,8 +149,8 @@ if __name__ == "__main__":
             results = sim_query_s(tfidf_df, bert_df, song)
             precision_sum += precision_s(genres, song, results)
             mrr_sum += mrr_s(genres, song, results)
-            ndcg_sum_10 += nDCG_ms(results, 10)
-            ndcg_sum_100 += nDCG_ms(results, 100)
+            ndcg_sum_10 += nDCG_ms(results, genres, song, 10)
+            ndcg_sum_100 += nDCG_ms(results, genres, song, 100)
 
         nsongs = len(all_songs)
 
