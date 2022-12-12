@@ -9,6 +9,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.metrics.pairwise import euclidean_distances
 from sklearn.metrics.pairwise import rbf_kernel
 from sklearn.decomposition import PCA
+from sklearn.preprocessing import normalize
 
 if __name__ == "__main__":
 
@@ -220,9 +221,10 @@ if __name__ == "__main__":
         print(f"{ndcg_sum_100 / len(all_songs)}\n")
 
     def initialize():
-        tfidf_df = pd.read_csv('./resources/id_lyrics_tf-idf_mmsr.tsv', delimiter="\t", index_col="id")
+        tfidf_df = pd.read_csv('./resources/id_lyrics_tf-idf_mmsr (2).tsv', delimiter="\t", index_col="id")
         bert_df = pd.read_csv('./resources/id_lyrics_bert_mmsr.tsv', delimiter="\t", index_col="id")
         genres = pd.read_csv('./resources/id_genres_mmsr.tsv', delimiter="\t", index_col="id")
+
         """
         video_features_resnet_output = pd.read_csv('./resources/id_resnet_mmsr.tsv', delimiter="\t", index_col="id")
         df_index = video_features_resnet_output.index
@@ -235,227 +237,59 @@ if __name__ == "__main__":
 
         return tfidf_df, bert_df, genres, bert_df
 
+    # endregion
+
+    def sim_query_fast(tfidf_df, bert_df, input_query, nvals: int = 100):
+
+        similarity = cosine_similarity(tfidf_df.loc[input_query], tfidf_df) * 0.5 + \
+                     (1 / (1 + euclidean_distances(bert_df.loc[input_query], bert_df, squared=True))) * 0.5
+        return similarity
+
+
 
     if __name__ == "__main__":
         tfidf_df, bert_df, genres, video_features_resnet = initialize()
-        genre_dict = get_genre_distribution(genres)
-        genre_dict_frequency = {k: round(v / len(genres), 4) for k, v in genre_dict.items()}
-        genre_dict_genre_frequency = {k: round(v / sum(genre_dict.values()), 4) for k, v in genre_dict.items()}
-        average_genres_song = sum(genre_dict.values()) / len(genres)
-        print(f"Genre: {genre_dict}\nGenre count: {len(genre_dict)}\n"
-              f"Genre frequency to song count: {genre_dict_frequency}\n"
-              f"Genre frequency to genre count: {genre_dict_genre_frequency}\n"
-              f"Average genres per song: {average_genres_song:.4f}\n")
 
-        #performance_metrics_s_video(video_features_resnet, genres)
+        all_songs = tfidf_df.index.tolist()
 
-        precision_mean, mrr_mean, ndcg10_mean, ndcg100_mean, precision_mean_bl, mrr_mean_bl, ndcg10_mean_bl, ndcg100_mean_bl = performance_metrics_s(tfidf_df, bert_df, genres)
-        print(f"Precision: {precision_mean}\n")
-        print(f"MRR: {mrr_mean}\n")
-        print(f"NDCG10 {ndcg10_mean}\n")
-        print(f"NDCG100 {ndcg100_mean}\n")
-        print(f"Baseline Metric: \n")
-        print(f"Precision Baseline: {precision_mean_bl}\n")
-        print(f"MRR Baseline: {mrr_mean_bl}\n")
-        print(f"NDCG10 Baseline: {ndcg10_mean_bl}\n")
-        print(f"NDCG100 Baseline: {ndcg100_mean_bl}\n")
+        all_songs = all_songs[0:5000]
 
+        results = sim_query_fast(tfidf_df, bert_df, all_songs)
 
+        tfidf_df.sort_values('id', ascending=True)
+        bert_df.sort_values('id', ascending=True)
 
-    # endregion
-
-    # region Memory Efficient but slow
-    def sim_query(input_query: str, nvals: int = 100):
-
-        sought_line_cosine = None
-        sought_line_euclidean = None
-
-        with open("./resources/id_lyrics_tf-idf_mmsr.tsv") as file:
-            tsv_file = csv.reader(file, delimiter="\t")
-            # skip first line as it is the string headers
-            next(tsv_file)
-            for line in tsv_file:
-                if line[0] == input_query:
-                    # Finding full line of our searched query
-                    sought_line_cosine = line
-                    break
-
-        with open("./resources/id_bert_mmsr.tsv") as file:
-            tsv_file = csv.reader(file, delimiter="\t")
-            # skip first line as it is the string headers
-            next(tsv_file)
-            for line in tsv_file:
-                if line[0] == input_query:
-                    # Finding full line of our searched query
-                    sought_line_euclidean = line
-                    break
-
-        if sought_line_cosine is None or sought_line_euclidean is None:
-            raise NameError("The searched input is not in the database")
-
-        similarities = dict()
-
-        with open("./resources/id_lyrics_tf-idf_mmsr.tsv") as file:
-            tsv_file = csv.reader(file, delimiter="\t")
-            # skip first line as it is the string headers
-            next(tsv_file)
-            for line in tsv_file:
-                similarities[line[0]] = cosine_similarity(np.array([sought_line_cosine[1:]]), np.array([line[1:]]))[
-                    0, 0]
-
-        with open("./resources/id_bert_mmsr.tsv") as file:
-            tsv_file = csv.reader(file, delimiter="\t")
-            # skip first line as it is the string headers
-            next(tsv_file)
-            for line in tsv_file:
-                similarities[line[0]] = similarities[line[0]] * 0.5 + \
-                                        (1 / (1 + euclidean_distances(np.array([sought_line_euclidean[1:]]),
-                                                                      np.array([line[1:]]),
-                                                                      squared=True)))[0, 0] * 0.5
-
-        # removing the search query fom the results
-        similarities.pop(input_query, None)
-        # ordering them by their similarity
-        similarities = sorted(similarities.items(), key=lambda kv: kv[1],
-                              reverse=True)  # dict(sorted(similarities.items(), key=lambda kv: kv[1], reverse=True))
-
-        return [x[0] for x in similarities[:nvals]]
-
-
-    def sim_query_with_relevance(input_query: str, nvals: int = 100):
-        sought_line_cosine = None
-        sought_line_euclidean = None
-
-        with open("./resources/id_lyrics_tf-idf_mmsr.tsv") as file:
-            tsv_file = csv.reader(file, delimiter="\t")
-            # skip first line as it is the string headers
-            next(tsv_file)
-            for line in tsv_file:
-                if line[0] == input_query:
-                    # Finding full line of our searched query
-                    sought_line_cosine = line
-                    break
-
-        with open("./resources/id_bert_mmsr.tsv") as file:
-            tsv_file = csv.reader(file, delimiter="\t")
-            # skip first line as it is the string headers
-            next(tsv_file)
-            for line in tsv_file:
-                if line[0] == input_query:
-                    # Finding full line of our searched query
-                    sought_line_euclidean = line
-                    break
-
-        if sought_line_cosine is None or sought_line_euclidean is None:
-            raise NameError("The searched input is not in the database")
-
-        similarities = dict()
-
-        with open("./resources/id_lyrics_tf-idf_mmsr.tsv") as file:
-            tsv_file = csv.reader(file, delimiter="\t")
-            # skip first line as it is the string headers
-            next(tsv_file)
-            for line in tsv_file:
-                similarities[line[0]] = cosine_similarity(np.array([sought_line_cosine[1:]]), np.array([line[1:]]))[
-                    0, 0]
-
-        with open("./resources/id_bert_mmsr.tsv") as file:
-            tsv_file = csv.reader(file, delimiter="\t")
-            # skip first line as it is the string headers
-            next(tsv_file)
-            for line in tsv_file:
-                similarities[line[0]] = similarities[line[0]] * 0.5 + \
-                                        (1 / (1 + euclidean_distances(np.array([sought_line_euclidean[1:]]),
-                                                                      np.array([line[1:]]),
-                                                                      squared=True)))[0, 0] * 0.5
-
-        # removing the search query fom the results
-        similarities.pop(input_query, None)
-        # ordering them by their similarity
-        similarities = sorted(similarities.items(), key=lambda kv: kv[1],
-                              reverse=True)  # dict(sorted(similarities.items(), key=lambda kv: kv[1], reverse=True))
-
-        return similarities[:nvals]
-
-
-    def precision(input_query: str, results: [str]):
-
-        genres = []
-        input_genres = []
-
-        with open("./resources/id_genres_mmsr.tsv") as file:
-            tsv_file = csv.reader(file, delimiter="\t")
-            # skip first line as it is the string headers
-            next(tsv_file)
-            for line in tsv_file:
-                if line[0] == input_query:
-                    input_genres = set(literal_eval(line[1]))
-                if line[0] in results:
-                    genres.append(set(literal_eval(line[1])))
-
-        hits = 0
-        for val in genres:
-            if len(input_genres & val) != 0:
-                hits += 1
-
-        return hits / len(results)
-
-
-    def mrr(input_query: str, results: [str]):
-
-        genres = []
-        input_genres = []
-
-        with open("./resources/id_genres_mmsr.tsv") as file:
-            tsv_file = csv.reader(file, delimiter="\t")
-            # skip first line as it is the string headers
-            next(tsv_file)
-            for line in tsv_file:
-                if line[0] == input_query:
-                    input_genres = set(literal_eval(line[1]))
-                if line[0] in results:
-                    genres.append(set(literal_eval(line[1])))
-
-        tries = 1
-        for val in genres:
-            temp = input_genres & val
-            if len(temp) == 0:
-                tries += 1
-            else:
-                break
-
-        return 1 / tries
-
-
-    def nDCG(results: [(str, float)], p: int):
-        relevance = [x[1] for x in results]
-        relevance_unordered = [x[1] for x in sorted(results, key=lambda x: x[0])]
-
-        DCG = 0
-        IDCG = 0
-
-        for i in range(0, p):
-            DCG += (pow(2, relevance_unordered[i]) - 1) / np.log2(i + 2)
-            IDCG += (pow(2, relevance[i]) - 1) / (np.log2(i + 2))
-
-        return DCG / IDCG
-
-
-    def performance_metrics():
-        query_song_strings = ["J4iv1rHSF2ky0K4n", "2YKPm6gHu6CRWeyx"]
         precision_sum = 0
         mrr_sum = 0
         ndcg_sum_10 = 0
         ndcg_sum_100 = 0
-        for query_string in query_song_strings:
-            result = sim_query_with_relevance(query_string)
-            result_similarity_score = [x[1] for x in result]
-            precision_sum += precision(query_string, result_similarity_score)
-            mrr_sum += mrr(query_string, result_similarity_score)
-            ndcg_sum_10 += nDCG(result, 10)
-            ndcg_sum_100 += nDCG(result, 100)
 
-        return precision_sum / len(query_song_strings), mrr_sum / len(query_song_strings), ndcg_sum_10 / len(
-            query_song_strings), ndcg_sum_100 / len(query_song_strings)
+        index = 0
+        for song in all_songs:
 
-    # endregion
+            res = pd.DataFrame(index=tfidf_df.index.tolist())
+            res.index.name = "id"
+            res["similarity"] = results[index]
+            res.drop([song], axis=0, inplace=True)
+
+            res_sim = res[res["similarity"] > 0.55]
+            if len(res_sim) < 100:
+                res_sim = res.nlargest(100, "similarity")
+
+
+            # query values
+            precision_sum += precision_s(genres, song, res_sim)
+            mrr_sum += mrr_s(genres, song, res_sim)
+            ndcg_sum_10 += nDCG_ms(res_sim, genres, song, 10)
+            ndcg_sum_100 += nDCG_ms(res_sim, genres, song, 100)
+            index += 1
+
+        nsongs = len(all_songs)
+        print(precision_sum / nsongs)
+        print(mrr_sum / nsongs)
+        print(ndcg_sum_10 / nsongs)
+        print(ndcg_sum_100 / nsongs)
+
+
+
+
