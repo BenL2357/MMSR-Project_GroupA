@@ -2,6 +2,7 @@ import ast
 
 import numpy as np
 import pandas as pd
+from sklearn.decomposition import PCA
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.metrics.pairwise import euclidean_distances
 
@@ -16,16 +17,14 @@ if __name__ == "__main__":
         return similarity
 
 
-    def sim_query_s_video(video_feature_vector, input_query: str, nvals: int = 100):
-        similarity = cosine_similarity(video_feature_vector.loc[[input_query]], video_feature_vector)[0]
+    def sim_query_s_video(video_feature_vector_1, video_feature_vector_2, input_query: [str]):
+        similarity = cosine_similarity(video_feature_vector_1.loc[input_query], video_feature_vector_1) * 0.5 + \
+                     cosine_similarity(video_feature_vector_2.loc[input_query], video_feature_vector_2) * 0.5
+        return similarity
 
-        res = pd.DataFrame(index=tfidf_df.index.tolist())
-        res.index.name = "id"
-        res["similarity"] = similarity
-        res.drop([input_query], axis=0, inplace=True)
-
-        return res.nlargest(nvals, "similarity")
-
+    def sim_query_s_mfcc(mfcc_bow, input_query: [str]):
+        similarity = cosine_similarity(mfcc_bow.loc[input_query], mfcc_bow)
+        return similarity
 
     def precision_s(genres, input_query: str, results):
 
@@ -143,13 +142,14 @@ if __name__ == "__main__":
 
 
     def performance_metrics_s_baseline(tfidf_df, genres):
+        print("Started Baseline Metric calculation")
         precision_sum_bl = 0
         mrr_sum_bl = 0
         ndcg_sum_10_bl = 0
         ndcg_sum_100_bl = 0
 
         # added sample
-        all_songs = tfidf_df.sample(random_state=22031307).index.tolist()
+        all_songs = tfidf_df.sample(n=len(tfidf_df),random_state=22031307).index.tolist()
 
         rand_int = 70313022
         for song in all_songs:
@@ -170,21 +170,60 @@ if __name__ == "__main__":
         print(f"NDCG100 Baseline: {ndcg_sum_100_bl / nsongs}\n")
 
 
-    def performance_metrics_s_video(video_features, genres):
+    def performance_metrics_s_video(video_features_max, video_features_mean, genres, n: int = 100, thv: float = 0.55):
         precision_sum = 0
         mrr_sum = 0
         ndcg_sum_10 = 0
         ndcg_sum_100 = 0
 
-        all_songs = video_features.index.tolist()
-        all_songs = all_songs[0:100]
+        all_songs = video_features_max.sample(n=n, random_state=22031307).index.tolist()
 
+        results = sim_query_s_video(video_features_max, video_features_mean, all_songs)
+
+        index = 0
         for song in all_songs:
-            results = sim_query_s_video(video_features, song)
-            precision_sum += precision_s(genres, song, results)
-            mrr_sum += mrr_s(genres, song, results)
-            ndcg_sum_10 += nDCG_ms(results, genres, song, 10)
-            ndcg_sum_100 += nDCG_ms(results, genres, song, 100)
+            res = pd.DataFrame(index=video_features_max.index.tolist())
+            res.index.name = "id"
+            res["similarity"] = results[index]
+            res.drop([song], axis=0, inplace=True)
+
+            res_sim = res.nlargest(100, "similarity")
+
+            precision_sum += precision_s(genres, song, res_sim)
+            mrr_sum += mrr_s(genres, song, res_sim)
+            ndcg_sum_10 += nDCG_ms(res_sim, genres, song, 10)
+            ndcg_sum_100 += nDCG_ms(res_sim, genres, song, 100)
+            index += 1
+
+        print(f"{precision_sum / len(all_songs)}\n")
+        print(f"{mrr_sum / len(all_songs)}\n")
+        print(f"{ndcg_sum_10 / len(all_songs)}\n")
+        print(f"{ndcg_sum_100 / len(all_songs)}\n")
+
+    def performance_metrics_s_mfcc(mfcc_bow, genres, n: int = 100, thv: float = 0.55):
+        precision_sum = 0
+        mrr_sum = 0
+        ndcg_sum_10 = 0
+        ndcg_sum_100 = 0
+
+        all_songs = mfcc_bow.sample(n=n, random_state=22031307).index.tolist()
+
+        results = sim_query_s_mfcc(mfcc_bow, all_songs)
+
+        index = 0
+        for song in all_songs:
+            res = pd.DataFrame(index=mfcc_bow.index.tolist())
+            res.index.name = "id"
+            res["similarity"] = results[index]
+            res.drop([song], axis=0, inplace=True)
+
+            res_sim = res.nlargest(100, "similarity")
+
+            precision_sum += precision_s(genres, song, res_sim)
+            mrr_sum += mrr_s(genres, song, res_sim)
+            ndcg_sum_10 += nDCG_ms(res_sim, genres, song, 10)
+            ndcg_sum_100 += nDCG_ms(res_sim, genres, song, 100)
+            index += 1
 
         print(f"{precision_sum / len(all_songs)}\n")
         print(f"{mrr_sum / len(all_songs)}\n")
@@ -193,27 +232,37 @@ if __name__ == "__main__":
 
 
     def initialize():
+        #TODO maybe split this function for modalities
         tfidf_df = pd.read_csv('./resources/id_lyrics_tf-idf_mmsr.tsv', delimiter="\t", index_col="id")
         bert_df = pd.read_csv('./resources/id_lyrics_bert_mmsr.tsv', delimiter="\t", index_col="id")
         genres = pd.read_csv('./resources/id_genres_mmsr.tsv', delimiter="\t", index_col="id")
 
-        #video_features_resnet_output = pd.read_csv('./resources/id_resnet_mmsr.tsv', delimiter="\t", index_col="id")
-        #video_features_resnet_output_mean = video_features_resnet_output.iloc[:, :2048]
-        #video_features_resnet_output_max = video_features_resnet_output.iloc[:, 2048:4096]
-        """
-        df_index = video_features_resnet_output.index
-        pca = PCA(n_components=2)
-        video_features_resnet_data = pca.fit_transform(video_features_resnet_output)
-        video_features_resnet = pd.DataFrame(data=video_features_resnet_data, index=df_index)
-        video_features_resnet.index.name = "id"
-        """
+        video_features_resnet_output = pd.read_csv('./resources/id_resnet_mmsr.tsv', delimiter="\t", index_col="id")
+        video_features_resnet_output_mean = video_features_resnet_output.iloc[:, :2048]
+        video_features_resnet_output_max = video_features_resnet_output.iloc[:, 2048:4096]
+
+        df_index = video_features_resnet_output_mean.index
+        pca = PCA(n_components=512, random_state=22031307)
+        video_features_resnet_data_mean = pca.fit_transform(video_features_resnet_output_mean)
+        video_features_resnet_data_max = pca.fit_transform(video_features_resnet_output_max)
+        video_features_resnet_mean = pd.DataFrame(data=video_features_resnet_data_mean, index=df_index)
+        video_features_resnet_mean.index.name = "id"
+        video_features_resnet_max = pd.DataFrame(data=video_features_resnet_data_max, index=df_index)
+        video_features_resnet_max.index.name = "id"
+
+        mfcc_bow = pd.read_csv('./resources/id_mfcc_bow_mmsr.tsv', delimiter="\t", index_col="id")
+
+        spectral = pd.read_csv('./resources/id_blf_spectral_mmsr.tsv', delimiter="\t", index_col="id")
+        spectral_contrast = pd.read_csv('./resources/id_blf_spectralcontrast_mmsr.tsv', delimiter="\t", index_col="id")
+
+
         genres["genre"] = genres["genre"].apply(ast.literal_eval)
 
-        return tfidf_df, bert_df, genres#, video_features_resnet_output_max
+        return tfidf_df, bert_df, genres, video_features_resnet_max, video_features_resnet_mean, mfcc_bow, spectral, spectral_contrast
 
 
     if __name__ == "__main__":
-        tfidf_df, bert_df, genres = initialize()# , video_features_resnet = initialize()
+        tfidf_df, bert_df, genres, video_features_resnet_max, video_features_resnet_mean, mfcc_bow, spectral, spectral_contrast = initialize()
         # genre_dict = get_genre_distribution(genres)
         # genre_dict_frequency = {k: round(v / len(genres), 4) for k, v in genre_dict.items()}
         # genre_dict_genre_frequency = {k: round(v / sum(genre_dict.values()), 4) for k, v in genre_dict.items()}
@@ -223,6 +272,6 @@ if __name__ == "__main__":
         #      f"Genre frequency to genre count: {genre_dict_genre_frequency}\n"
         #      f"Average genres per song: {average_genres_song:.4f}\n")
         # performance_metrics_s_baseline(tfidf_df, bert_df, genres)
-        # performance_metrics_s_video(video_features_resnet, genres)
-
-        performance_metrics_s(tfidf_df, bert_df, genres, n=10000)
+        performance_metrics_s_video(spectral, spectral_contrast, genres, 100)
+        #performance_metrics_s_mfcc(mfcc_bow, genres, n=100)
+        #performance_metrics_s(tfidf_df, bert_df, genres,  n=10000)
