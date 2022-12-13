@@ -3,7 +3,6 @@ import ast
 import numpy as np
 import pandas as pd
 from sklearn.decomposition import PCA
-from sklearn.metrics import precision_recall_curve
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.metrics.pairwise import euclidean_distances
 import matplotlib.pyplot as plt
@@ -107,9 +106,12 @@ if __name__ == "__main__":
         ndcg_sum_100_bl = 0
 
         # added sample
-        all_songs = tfidf_df.sample(n=len(tfidf_df),random_state=SEED).index.tolist()
+        all_songs = tfidf_df.sample(n=10000,random_state=SEED).index.tolist()
 
         rand_int = 70313022
+
+        precision_arr_sum = 0
+        recall_arr_sum = 0
         for song in all_songs:
             random_results = tfidf_df.sample(n=100, random_state=rand_int)
             # baseline values
@@ -119,7 +121,17 @@ if __name__ == "__main__":
             ndcg_sum_100_bl += nDCG_ms(random_results, genres, song, 100)
             rand_int += 1
 
+            precision_arr, recall_arr = precision_recall_plot(song, genres, random_results, False)
+
+            precision_arr_sum = precision_arr_sum + precision_arr
+            recall_arr_sum = recall_arr_sum + recall_arr
+
         nsongs = len(all_songs)
+
+        precision_arr_norm = precision_arr_sum / nsongs
+        recall_arr_norm = recall_arr_sum / nsongs
+
+        plot_precision_recall(precision_arr_norm, recall_arr_norm, "Baseline", ylim_min=0.0)
 
         print(f"Baseline Metric: \n")
         print(f"Precision Baseline: {precision_sum_bl / nsongs}\n")
@@ -141,8 +153,11 @@ if __name__ == "__main__":
 
         plt.show()
 
-    def precision_recall_plot(song, genres, results):
-        result_cut = results.nlargest(100, "similarity")
+    def precision_recall_plot(song, genres, results, do_cut=True):
+        if do_cut:
+            result_cut = results.nlargest(100, "similarity")
+        else:
+            result_cut = results
         relevance_class = np.zeros(100)
         song_genre = genres.loc[song]["genre"]
 
@@ -228,10 +243,10 @@ if __name__ == "__main__":
 
         if DEBUG:
             print(f"Performan Metrics for {metric_name}")
-            print(f"{precision_sum / len(all_songs)}\n")
-            print(f"{mrr_sum / len(all_songs)}\n")
-            print(f"{ndcg_sum_10 / len(all_songs)}\n")
-            print(f"{ndcg_sum_100 / len(all_songs)}\n")
+            print(f"Precision: {precision_sum / len(all_songs)}\n")
+            print(f"MRR: {mrr_sum / len(all_songs)}\n")
+            print(f"NDCG10: {ndcg_sum_10 / len(all_songs)}\n")
+            print(f"NDCG100: {ndcg_sum_100 / len(all_songs)}\n")
 
         return precision_sum / len(all_songs), mrr_sum / len(all_songs), ndcg_sum_10 / len(all_songs), ndcg_sum_100 / len(all_songs)
 
@@ -278,7 +293,7 @@ if __name__ == "__main__":
               f"Genre frequency to song count: {genre_dict_frequency}\n"
               f"Genre frequency to genre count: {genre_dict_genre_frequency}\n"
               f"Average genres per song: {average_genres_song:.4f}\n")
-        #performance_metrics_s_baseline(tfidf_df, genres)
+        performance_metrics_s_baseline(tfidf_df, genres)
         performance_metrics(tfidf_df, bert_df, 1, genres, 10000, thv=0.55)
         performance_metrics(video_features_resnet_max, video_features_resnet_mean, 2, genres, 10000)
         performance_metrics(mfcc_bow, None, 3, genres, 10000)
