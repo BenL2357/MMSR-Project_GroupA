@@ -27,21 +27,6 @@ if __name__ == "__main__":
             raise ValueError("Feature function mode is invalid!")
         return similarity
 
-    def sim_query_tf_idf(tfidf_df, bert_df, input_query: [str]):
-        similarity = cosine_similarity(tfidf_df.loc[input_query], tfidf_df) * 0.5 + \
-                     (1 / (1 + euclidean_distances(bert_df.loc[input_query], bert_df, squared=True))) * 0.5
-        return similarity
-
-
-    def sim_query_s_video(video_feature_vector_1, video_feature_vector_2, input_query: [str]):
-        similarity = cosine_similarity(video_feature_vector_1.loc[input_query], video_feature_vector_1) * 0.5 + \
-                     cosine_similarity(video_feature_vector_2.loc[input_query], video_feature_vector_2) * 0.5
-        return similarity
-
-    def sim_query_s_mfcc(mfcc_bow, input_query: [str]):
-        similarity = cosine_similarity(mfcc_bow.loc[input_query], mfcc_bow)
-        return similarity
-
     def precision_s(genres, input_query: str, results):
 
         input_genres = genres.loc[input_query]["genre"]
@@ -114,49 +99,6 @@ if __name__ == "__main__":
         return count / len(genres)
 
 
-    def performance_metrics_s(tfidf_df, bert_df, genres, n: int = 100, thv: float = 0.55):
-        precision_sum = 0
-        mrr_sum = 0
-        ndcg_sum_10 = 0
-        ndcg_sum_100 = 0
-
-        # added sample
-        all_songs = tfidf_df.sample(n=n, random_state=SEED).index.tolist()
-
-        results = sim_query_tf_idf(tfidf_df, bert_df, all_songs)
-
-        index = 0
-        for song in all_songs:
-            # creating a data frame with the result for the specific song
-            res = pd.DataFrame(index=tfidf_df.index.tolist())
-            res.index.name = "id"
-            res["similarity"] = results[index]
-            res.drop([song], axis=0, inplace=True)
-
-            res_sim = res[res["similarity"] > thv]
-            if len(res_sim) < 100:
-                res_sim = res.nlargest(100, "similarity")
-            else:
-                res_sim = res_sim.sort_values(by=["similarity"], ascending=False)
-
-            # query values
-            precision_sum += precision_s(genres, song, res_sim)
-            mrr_sum += mrr_s(genres, song, res_sim)
-            ndcg_sum_10 += nDCG_ms(res_sim, genres, song, 10)
-            ndcg_sum_100 += nDCG_ms(res_sim, genres, song, 100)
-            index += 1
-
-        nsongs = len(all_songs)
-
-        if DEBUG:
-            print(f"Precision: {precision_sum / nsongs}\n")
-            print(f"MRR: {mrr_sum / nsongs}\n")
-            print(f"NDCG10 {ndcg_sum_10 / nsongs}\n")
-            print(f"NDCG100 {ndcg_sum_100 / nsongs}\n")
-
-        return precision_sum / nsongs, mrr_sum / nsongs, ndcg_sum_10 / nsongs, ndcg_sum_100 / nsongs
-
-
     def performance_metrics_s_baseline(tfidf_df, genres):
         print("Started Baseline Metric calculation")
         precision_sum_bl = 0
@@ -185,80 +127,6 @@ if __name__ == "__main__":
         print(f"NDCG10 Baseline: {ndcg_sum_10_bl / nsongs}\n")
         print(f"NDCG100 Baseline: {ndcg_sum_100_bl / nsongs}\n")
 
-
-    def performance_metrics_s_video(video_features_max, video_features_mean, genres, n: int = 100, thv: float = 0.55):
-        precision_sum = 0
-        mrr_sum = 0
-        ndcg_sum_10 = 0
-        ndcg_sum_100 = 0
-
-        all_songs = video_features_max.sample(n=n, random_state=SEED).index.tolist()
-
-        results = sim_query_s_video(video_features_max, video_features_mean, all_songs)
-
-        index = 0
-        for song in all_songs:
-            res = pd.DataFrame(index=video_features_max.index.tolist())
-            res.index.name = "id"
-            res["similarity"] = results[index]
-            res.drop([song], axis=0, inplace=True)
-
-            res_sim = res.nlargest(100, "similarity")
-
-            precision_sum += precision_s(genres, song, res_sim)
-            mrr_sum += mrr_s(genres, song, res_sim)
-            ndcg_sum_10 += nDCG_ms(res_sim, genres, song, 10)
-            ndcg_sum_100 += nDCG_ms(res_sim, genres, song, 100)
-            index += 1
-
-        print(f"Video Metric:\n")
-        print(f"{precision_sum / len(all_songs)}\n")
-        print(f"{mrr_sum / len(all_songs)}\n")
-        print(f"{ndcg_sum_10 / len(all_songs)}\n")
-        print(f"{ndcg_sum_100 / len(all_songs)}\n")
-
-    def performance_metrics_s_spectral(spectral, spectral_contrast, genres, n: int = 100, thv: float = 0.55):
-        precision_sum = 0
-        mrr_sum = 0
-        ndcg_sum_10 = 0
-        ndcg_sum_100 = 0
-
-        all_songs = spectral.sample(n=n, random_state=SEED).index.tolist()
-
-        results = sim_query_s_video(spectral, spectral_contrast, all_songs)
-        precision_arr_sum = np.zeros(101)
-        recall_arr_sum = np.zeros(101)
-
-        index = 0
-        for song in all_songs:
-            res = pd.DataFrame(index=spectral.index.tolist())
-            res.index.name = "id"
-            res["similarity"] = results[index]
-            res.drop([song], axis=0, inplace=True)
-
-            res_sim = res.nlargest(100, "similarity")
-
-            precision_arr, recall_arr = precision_recall_plot(song, genres, res_sim)
-
-            precision_arr_sum = precision_arr_sum + precision_arr
-            recall_arr_sum = recall_arr_sum + recall_arr
-
-            precision_sum += precision_s(genres, song, res_sim)
-            mrr_sum += mrr_s(genres, song, res_sim)
-            ndcg_sum_10 += nDCG_ms(res_sim, genres, song, 10)
-            ndcg_sum_100 += nDCG_ms(res_sim, genres, song, 100)
-            index += 1
-
-        precision_to_plot = precision_arr_sum / len(all_songs)
-        recall_to_plot = recall_arr_sum / len(all_songs)
-
-        plot_precision_recall(precision_to_plot, recall_to_plot, "Spectral")
-
-        print(f"Spectral Metrics:\n")
-        print(f"{precision_sum / len(all_songs)}\n")
-        print(f"{mrr_sum / len(all_songs)}\n")
-        print(f"{ndcg_sum_10 / len(all_songs)}\n")
-        print(f"{ndcg_sum_100 / len(all_songs)}\n")
 
     def plot_precision_recall(precision_to_plot, recall_to_plot, label, ylim_min=0.5):
         # create precision recall curve
@@ -301,39 +169,6 @@ if __name__ == "__main__":
 
         return precision, recall
 
-
-
-
-    def performance_metrics_s_mfcc(mfcc_bow, genres, n: int = 100, thv: float = 0.55):
-        precision_sum = 0
-        mrr_sum = 0
-        ndcg_sum_10 = 0
-        ndcg_sum_100 = 0
-
-        all_songs = mfcc_bow.sample(n=n, random_state=SEED).index.tolist()
-
-        results = sim_query_s_mfcc(mfcc_bow, all_songs)
-
-        index = 0
-        for song in all_songs:
-            res = pd.DataFrame(index=mfcc_bow.index.tolist())
-            res.index.name = "id"
-            res["similarity"] = results[index]
-            res.drop([song], axis=0, inplace=True)
-
-            res_sim = res.nlargest(100, "similarity")
-
-            precision_sum += precision_s(genres, song, res_sim)
-            mrr_sum += mrr_s(genres, song, res_sim)
-            ndcg_sum_10 += nDCG_ms(res_sim, genres, song, 10)
-            ndcg_sum_100 += nDCG_ms(res_sim, genres, song, 100)
-            index += 1
-
-        print(f"MFCC BoAW Metric:\n")
-        print(f"{precision_sum / len(all_songs)}\n")
-        print(f"{mrr_sum / len(all_songs)}\n")
-        print(f"{ndcg_sum_10 / len(all_songs)}\n")
-        print(f"{ndcg_sum_100 / len(all_songs)}\n")
 
     def performance_metrics(feature_vector_1, feature_vector_2, feature_function_mode, genres, n: int = 100, thv: float = 0.0):
         precision_sum = 0
