@@ -6,6 +6,7 @@ from sklearn.decomposition import PCA
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.metrics.pairwise import euclidean_distances
 import matplotlib.pyplot as plt
+import scipy.stats as stats
 
 # Flag for couple of print values
 DEBUG = True
@@ -249,17 +250,61 @@ if __name__ == "__main__":
             print(f"NDCG100: {ndcg_sum_100 / len(all_songs)}\n")
 
         return precision_sum / len(all_songs), mrr_sum / len(all_songs), ndcg_sum_10 / len(all_songs), ndcg_sum_100 / len(all_songs)
+    def kendall_tau_correlation_calculation(tfidf_df, bert_df, video_features_resnet_max, video_features_resnet_mean, mfcc_bow, spectral, spectral_contrast, song_count=1000):
+        all_songs = tfidf_df.sample(n=song_count, random_state=SEED).index.tolist()
 
-    def kendall_tau_correlation():
-        return None
+        results = list()
+        results.append(sim_query(all_songs, tfidf_df, bert_df, 1))
+        results.append(sim_query(all_songs, video_features_resnet_mean, video_features_resnet_max, 2))
+        results.append(sim_query(all_songs, mfcc_bow, None, 3))
+        results.append(sim_query(all_songs, spectral, spectral_contrast, 4))
+        song_index = 0
+        correclation_matrix = np.zeros(shape=(len(results), len(results)))
+
+        for song in all_songs:
+            for index, item in enumerate(results):
+                res = pd.DataFrame(index=tfidf_df.index.tolist())
+                res.index.name = "id"
+                res["similarity"] = results[index][song_index]
+                res.drop([song], axis=0, inplace=True)
+
+                res_modality_1 = res.nlargest(100, "similarity")
+
+                for index2, item2 in enumerate(results):
+                    if index != index2:
+                        res = pd.DataFrame(index=tfidf_df.index.tolist())
+                        res.index.name = "id"
+                        res["similarity"] = results[index2][song_index]
+                        res.drop([song], axis=0, inplace=True)
+
+                        res_modality_2 = res.nlargest(100, "similarity")
+
+                        idx1 = pd.Index(res_modality_1.index)
+                        idx2 = pd.Index(res_modality_2.index)
+
+                        intersection_result = idx1.intersection(idx2)
+
+                        rankings_modal1 = np.zeros(len(intersection_result))
+                        rankings_modal2 = np.zeros(len(intersection_result))
+                        for index3, element in enumerate(intersection_result):
+                            rankings_modal1[index3] = idx1.get_loc(element)+1
+                            rankings_modal2[index3] = idx2.get_loc(element)+1
+                        if len(intersection_result) > 1:
+                            correlation_value, _ = stats.kendalltau(rankings_modal1, rankings_modal2)
+                            correclation_matrix[index, index2] = correclation_matrix[index, index2] + correlation_value
+            song_index += 1
+
+        correclation_matrix = correclation_matrix / len(all_songs)
+        print(correclation_matrix)
+
 
     def initialize():
         #TODO maybe split this function for modalities
-        tfidf_df = pd.read_csv('./resources/id_lyrics_tf-idf_mmsr.tsv', delimiter="\t", index_col="id")
-        bert_df = pd.read_csv('./resources/id_lyrics_bert_mmsr.tsv', delimiter="\t", index_col="id")
-        genres = pd.read_csv('./resources/id_genres_mmsr.tsv', delimiter="\t", index_col="id")
+        tfidf_df = pd.read_csv('./resources/id_lyrics_tf-idf_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
+        bert_df = pd.read_csv('./resources/id_lyrics_bert_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
+        genres = pd.read_csv('./resources/id_genres_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
 
-        video_features_resnet_output = pd.read_csv('./resources/id_resnet_mmsr.tsv', delimiter="\t", index_col="id")
+        video_features_resnet_output = pd.read_csv('./resources/id_resnet_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
         video_features_resnet_output_mean = video_features_resnet_output.iloc[:, :2048]
         video_features_resnet_output_max = video_features_resnet_output.iloc[:, 2048:4096]
 
@@ -272,10 +317,10 @@ if __name__ == "__main__":
         video_features_resnet_max = pd.DataFrame(data=video_features_resnet_data_max, index=df_index)
         video_features_resnet_max.index.name = "id"
 
-        mfcc_bow = pd.read_csv('./resources/id_mfcc_bow_mmsr.tsv', delimiter="\t", index_col="id")
+        mfcc_bow = pd.read_csv('./resources/id_mfcc_bow_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
 
-        spectral = pd.read_csv('./resources/id_blf_spectral_mmsr.tsv', delimiter="\t", index_col="id")
-        spectral_contrast = pd.read_csv('./resources/id_blf_spectralcontrast_mmsr.tsv', delimiter="\t", index_col="id")
+        spectral = pd.read_csv('./resources/id_blf_spectral_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
+        spectral_contrast = pd.read_csv('./resources/id_blf_spectralcontrast_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
 
 
         genres["genre"] = genres["genre"].apply(ast.literal_eval)
@@ -298,4 +343,5 @@ if __name__ == "__main__":
         performance_metrics(video_features_resnet_max, video_features_resnet_mean, 2, genres, 10000)
         performance_metrics(mfcc_bow, None, 3, genres, 10000)
         performance_metrics(spectral, spectral_contrast, 4, genres, 10000)
+        kendall_tau_correlation_calculation(tfidf_df, bert_df, video_features_resnet_max, video_features_resnet_mean, mfcc_bow, spectral, spectral_contrast)
 
