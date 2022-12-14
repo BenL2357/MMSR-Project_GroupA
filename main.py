@@ -299,7 +299,6 @@ if __name__ == "__main__":
 
 
     def initialize():
-        #TODO maybe split this function for modalities
         tfidf_df = pd.read_csv('./resources/id_lyrics_tf-idf_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
         bert_df = pd.read_csv('./resources/id_lyrics_bert_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
         genres = pd.read_csv('./resources/id_genres_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
