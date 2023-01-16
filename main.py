@@ -9,7 +9,8 @@ import matplotlib.pyplot as plt
 import scipy.stats as stats
 
 # Flag for couple of print values
-DEBUG = True
+METRIC_ON = False
+DEBUG = True and METRIC_ON
 SEED = 22031307
 
 if __name__ == "__main__":
@@ -17,7 +18,8 @@ if __name__ == "__main__":
     def sim_query(input_query: [str], feature_vector_1, feature_vector_2=None, feature_function_mode=0):
         if feature_function_mode == 1:
             similarity = cosine_similarity(feature_vector_1.loc[input_query], feature_vector_1) * 0.5 + \
-                         (1 / (1 + euclidean_distances(feature_vector_2.loc[input_query], feature_vector_2, squared=True))) * 0.5
+                         (1 / (1 + euclidean_distances(feature_vector_2.loc[input_query], feature_vector_2,
+                                                       squared=True))) * 0.5
         elif feature_function_mode == 2 or feature_function_mode == 4:
             similarity = cosine_similarity(feature_vector_1.loc[input_query], feature_vector_1) * 0.5 + \
                          cosine_similarity(feature_vector_2.loc[input_query], feature_vector_2) * 0.5
@@ -26,6 +28,7 @@ if __name__ == "__main__":
         else:
             raise ValueError("Feature function mode is invalid!")
         return similarity
+
 
     def precision_s(genres, input_query: str, results):
 
@@ -107,7 +110,7 @@ if __name__ == "__main__":
         ndcg_sum_100_bl = 0
 
         # added sample
-        all_songs = tfidf_df.sample(n=10000,random_state=SEED).index.tolist()
+        all_songs = tfidf_df.sample(n=10000, random_state=SEED).index.tolist()
 
         rand_int = 70313022
 
@@ -154,6 +157,7 @@ if __name__ == "__main__":
 
         plt.show()
 
+
     def precision_recall_plot(song, genres, results, do_cut=True):
         if do_cut:
             result_cut = results.nlargest(100, "similarity")
@@ -174,19 +178,30 @@ if __name__ == "__main__":
         precision[0] = 1
         recall[0] = 0
 
-        for index in range(1, 1+len(relevance_class)):
+        for index in range(1, 1 + len(relevance_class)):
             sub_relevance = relevance_class[:index]
             sub_relevance_sum = sub_relevance.sum()
-            precision[index] = sub_relevance_sum/len(sub_relevance)
+            precision[index] = sub_relevance_sum / len(sub_relevance)
             if relevant_sum != 0:
-                recall[index] = sub_relevance_sum/relevant_sum
+                recall[index] = sub_relevance_sum / relevant_sum
             else:
                 recall[index] = 0
 
         return precision, recall
 
 
-    def performance_metrics(feature_vector_1, feature_vector_2, feature_function_mode, genres, n: int = 100, thv: float = 0.0):
+    def percent_delta_mean(popularity_data, query_song, query_results):
+        if popularity_data.loc[query_song]["popularity"] != 0.0:
+            return (popularity_data.loc[query_results.index]["popularity"].mean() - popularity_data.loc[query_song][
+                "popularity"]) \
+                   / popularity_data.loc[query_song]["popularity"]
+        else:
+            return 0
+
+
+
+    def performance_metrics(feature_vector_1, feature_vector_2, feature_function_mode, genres, popularity_data,
+                            n: int = 100, thv: float = 0.0):
         precision_sum = 0
         mrr_sum = 0
         ndcg_sum_10 = 0
@@ -200,6 +215,7 @@ if __name__ == "__main__":
         results = sim_query(all_songs, feature_vector_1, feature_vector_2, feature_function_mode)
         precision_arr_sum = 0
         recall_arr_sum = 0
+        delta_mean_array = np.zeros(n)
         for song in all_songs:
             res = pd.DataFrame(index=feature_vector_1.index.tolist())
             res.index.name = "id"
@@ -214,33 +230,35 @@ if __name__ == "__main__":
                     res_sim = res_sim.sort_values(by=["similarity"], ascending=False)
             else:
                 res_sim = res.nlargest(100, "similarity")
+            if METRIC_ON:
+                delta_mean_array[index_loop] = percent_delta_mean(popularity_data, song, res_sim)
 
-            precision_arr, recall_arr = precision_recall_plot(song, genres, res_sim)
+                precision_arr, recall_arr = precision_recall_plot(song, genres, res_sim)
 
-            precision_arr_sum = precision_arr_sum + precision_arr
-            recall_arr_sum = recall_arr_sum + recall_arr
+                precision_arr_sum = precision_arr_sum + precision_arr
+                recall_arr_sum = recall_arr_sum + recall_arr
 
-            precision_sum += precision_s(genres, song, res_sim)
-            mrr_sum += mrr_s(genres, song, res_sim)
-            ndcg_sum_10 += nDCG_ms(res_sim, genres, song, 10)
-            ndcg_sum_100 += nDCG_ms(res_sim, genres, song, 100)
-            index_loop += 1
+                precision_sum += precision_s(genres, song, res_sim)
+                mrr_sum += mrr_s(genres, song, res_sim)
+                ndcg_sum_10 += nDCG_ms(res_sim, genres, song, 10)
+                ndcg_sum_100 += nDCG_ms(res_sim, genres, song, 100)
+                index_loop += 1
+        if METRIC_ON:
+            precision_arr_norm = precision_arr_sum / len(all_songs)
+            recall_arr_norm = recall_arr_sum / len(all_songs)
 
-        precision_arr_norm = precision_arr_sum / len(all_songs)
-        recall_arr_norm = recall_arr_sum / len(all_songs)
+            if feature_function_mode == 1:
+                metric_name = "Lyric Features: TF-IDF, BERT"
+            elif feature_function_mode == 2:
+                metric_name = "Video Features: VGG19"
+            elif feature_function_mode == 3:
+                metric_name = "Audio Feature: MFCC BoW"
+            elif feature_function_mode == 4:
+                metric_name = "Audio BL Features: Spectral, Spectral Contrast"
+            else:
+                metric_name = "Undefinied"
 
-        if feature_function_mode == 1:
-            metric_name = "Lyric Features: TF-IDF, BERT"
-        elif feature_function_mode == 2:
-            metric_name = "Video Features: VGG19"
-        elif feature_function_mode == 3:
-            metric_name = "Audio Feature: MFCC BoW"
-        elif feature_function_mode == 4:
-            metric_name = "Audio BL Features: Spectral, Spectral Contrast"
-        else:
-            metric_name = "Undefinied"
-
-        plot_precision_recall(precision_arr_norm, recall_arr_norm, metric_name)
+            plot_precision_recall(precision_arr_norm, recall_arr_norm, metric_name)
 
         if DEBUG:
             print(f"Performan Metrics for {metric_name}")
@@ -248,9 +266,14 @@ if __name__ == "__main__":
             print(f"MRR: {mrr_sum / len(all_songs)}\n")
             print(f"NDCG10: {ndcg_sum_10 / len(all_songs)}\n")
             print(f"NDCG100: {ndcg_sum_100 / len(all_songs)}\n")
+            print(f"Median Delta Mean: {np.median(delta_mean_array)}")
 
-        return precision_sum / len(all_songs), mrr_sum / len(all_songs), ndcg_sum_10 / len(all_songs), ndcg_sum_100 / len(all_songs)
-    def kendall_tau_correlation_calculation(tfidf_df, bert_df, video_features_resnet_max, video_features_resnet_mean, mfcc_bow, spectral, spectral_contrast, song_count=1000):
+        return precision_sum / len(all_songs), mrr_sum / len(all_songs), ndcg_sum_10 / len(
+            all_songs), ndcg_sum_100 / len(all_songs)
+
+
+    def kendall_tau_correlation_calculation(tfidf_df, bert_df, video_features_resnet_max, video_features_resnet_mean,
+                                            mfcc_bow, spectral, spectral_contrast, song_count=1000):
         all_songs = tfidf_df.sample(n=song_count, random_state=SEED).index.tolist()
 
         results = list()
@@ -287,8 +310,8 @@ if __name__ == "__main__":
                         rankings_modal1 = np.zeros(len(intersection_result))
                         rankings_modal2 = np.zeros(len(intersection_result))
                         for index3, element in enumerate(intersection_result):
-                            rankings_modal1[index3] = idx1.get_loc(element)+1
-                            rankings_modal2[index3] = idx2.get_loc(element)+1
+                            rankings_modal1[index3] = idx1.get_loc(element) + 1
+                            rankings_modal2[index3] = idx2.get_loc(element) + 1
                         if len(intersection_result) > 1:
                             correlation_value, _ = stats.kendalltau(rankings_modal1, rankings_modal2)
                             correclation_matrix[index, index2] = correclation_matrix[index, index2] + correlation_value
@@ -299,11 +322,13 @@ if __name__ == "__main__":
 
 
     def initialize():
-        tfidf_df = pd.read_csv('./resources/id_lyrics_tf-idf_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
+        tfidf_df = pd.read_csv('./resources/id_lyrics_tf-idf_mmsr.tsv', delimiter="\t", index_col="id").sort_values(
+            "id")
         bert_df = pd.read_csv('./resources/id_lyrics_bert_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
         genres = pd.read_csv('./resources/id_genres_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
 
-        video_features_resnet_output = pd.read_csv('./resources/id_resnet_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
+        video_features_resnet_output = pd.read_csv('./resources/id_resnet_mmsr.tsv', delimiter="\t",
+                                                   index_col="id").sort_values("id")
         video_features_resnet_output_mean = video_features_resnet_output.iloc[:, :2048]
         video_features_resnet_output_max = video_features_resnet_output.iloc[:, 2048:4096]
 
@@ -319,16 +344,17 @@ if __name__ == "__main__":
         mfcc_bow = pd.read_csv('./resources/id_mfcc_bow_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
 
         spectral = pd.read_csv('./resources/id_blf_spectral_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
-        spectral_contrast = pd.read_csv('./resources/id_blf_spectralcontrast_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
-
+        spectral_contrast = pd.read_csv('./resources/id_blf_spectralcontrast_mmsr.tsv', delimiter="\t",
+                                        index_col="id").sort_values("id")
+        spotify_data = pd.read_csv('./resources/id_metadata_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
 
         genres["genre"] = genres["genre"].apply(ast.literal_eval)
 
-        return tfidf_df, bert_df, genres, video_features_resnet_max, video_features_resnet_mean, mfcc_bow, spectral, spectral_contrast
+        return tfidf_df, bert_df, genres, video_features_resnet_max, video_features_resnet_mean, mfcc_bow, spectral, spectral_contrast, spotify_data
 
 
     if __name__ == "__main__":
-        tfidf_df, bert_df, genres, video_features_resnet_max, video_features_resnet_mean, mfcc_bow, spectral, spectral_contrast = initialize()
+        tfidf_df, bert_df, genres, video_features_resnet_max, video_features_resnet_mean, mfcc_bow, spectral, spectral_contrast, spotify_data = initialize()
         genre_dict = get_genre_distribution(genres)
         genre_dict_frequency = {k: round(v / len(genres), 4) for k, v in genre_dict.items()}
         genre_dict_genre_frequency = {k: round(v / sum(genre_dict.values()), 4) for k, v in genre_dict.items()}
@@ -337,10 +363,10 @@ if __name__ == "__main__":
               f"Genre frequency to song count: {genre_dict_frequency}\n"
               f"Genre frequency to genre count: {genre_dict_genre_frequency}\n"
               f"Average genres per song: {average_genres_song:.4f}\n")
-        performance_metrics_s_baseline(tfidf_df, genres)
-        performance_metrics(tfidf_df, bert_df, 1, genres, 10000, thv=0.55)
-        performance_metrics(video_features_resnet_max, video_features_resnet_mean, 2, genres, 10000)
-        performance_metrics(mfcc_bow, None, 3, genres, 10000)
-        performance_metrics(spectral, spectral_contrast, 4, genres, 10000)
-        kendall_tau_correlation_calculation(tfidf_df, bert_df, video_features_resnet_max, video_features_resnet_mean, mfcc_bow, spectral, spectral_contrast)
-
+        # performance_metrics_s_baseline(tfidf_df, genres)
+        performance_metrics(tfidf_df, bert_df, 1, genres, spotify_data, 10000, thv=0.55)
+        performance_metrics(video_features_resnet_max, video_features_resnet_mean, 2, genres, spotify_data, 10000)
+        performance_metrics(mfcc_bow, None, 3, genres, spotify_data, 10000)
+        performance_metrics(spectral, spectral_contrast, 4, genres, spotify_data, 10000)
+        kendall_tau_correlation_calculation(tfidf_df, bert_df, video_features_resnet_max, video_features_resnet_mean,
+                                            mfcc_bow, spectral, spectral_contrast)
