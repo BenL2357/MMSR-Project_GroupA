@@ -41,6 +41,17 @@ if __name__ == "__main__":
 
         return hits / len(results)
 
+    def precision_s_2(genres, input_query: str, results):
+
+        input_genres = genres.loc[input_query]["genre"]
+
+        hits = 0
+        for index in results:
+            if len(np.intersect1d(genres.loc[index]["genre"], input_genres)) >= 1:
+                hits += 1
+
+        return hits / len(results)
+
 
     def mrr_s(genres, input_query: str, results):
 
@@ -48,6 +59,19 @@ if __name__ == "__main__":
 
         tries = 1
         for index, row in results.iterrows():
+            if len(np.intersect1d(genres.loc[index]["genre"], input_genres)) >= 1:
+                break
+            else:
+                tries += 1
+
+        return 1 / tries
+
+    def mrr_s_2(genres, input_query: str, results):
+
+        input_genres = genres.loc[input_query]["genre"]
+
+        tries = 1
+        for index in results:
             if len(np.intersect1d(genres.loc[index]["genre"], input_genres)) >= 1:
                 break
             else:
@@ -63,6 +87,28 @@ if __name__ == "__main__":
 
         iter_index = 0
         for index, row in results.iterrows():
+            if iter_index >= p:
+                break
+            if len(np.intersect1d(genres.loc[index]["genre"], input_genres)) >= 1:
+                relevance_scores[iter_index] = 1
+            iter_index += 1
+
+        DCG = relevance_scores[0]
+        IDCG = 1
+
+        for i in range(1, p):
+            DCG += relevance_scores[i] / np.log2(i + 1)
+            IDCG += 1 / np.log2(i + 1)
+
+        return DCG / IDCG
+
+    def nDCG_ms_2(results, genres, input_query: str, p: int):
+
+        input_genres = genres.loc[input_query]["genre"]
+        relevance_scores = np.zeros((p))
+
+        iter_index = 0
+        for index in results:
             if iter_index >= p:
                 break
             if len(np.intersect1d(genres.loc[index]["genre"], input_genres)) >= 1:
@@ -189,6 +235,34 @@ if __name__ == "__main__":
 
         return precision, recall
 
+    def precision_recall_plot_2(song, genres, results):
+
+        relevance_class = np.zeros(100)
+        song_genre = genres.loc[song]["genre"]
+
+        iter_index = 0
+        for index in results:
+            if len(np.intersect1d(genres.loc[index]["genre"], song_genre)) >= 1:
+                relevance_class[iter_index] = 1
+            iter_index += 1
+
+        relevant_sum = relevance_class.sum()
+        precision = np.zeros(101)
+        recall = np.zeros(101)
+        precision[0] = 1
+        recall[0] = 0
+
+        for index in range(1, 1 + len(relevance_class)):
+            sub_relevance = relevance_class[:index]
+            sub_relevance_sum = sub_relevance.sum()
+            precision[index] = sub_relevance_sum / len(sub_relevance)
+            if relevant_sum != 0:
+                recall[index] = sub_relevance_sum / relevant_sum
+            else:
+                recall[index] = 0
+
+        return precision, recall
+
 
     def percent_delta_mean(popularity_data, query_song, query_results):
         if popularity_data.loc[query_song]["popularity"] != 0.0:
@@ -198,6 +272,14 @@ if __name__ == "__main__":
         else:
             return 0
 
+
+    def percent_delta_mean_2(popularity_data, query_song, query_results):
+        if popularity_data.loc[query_song]["popularity"] != 0.0:
+            return (popularity_data.loc[query_results]["popularity"].mean() - popularity_data.loc[query_song][
+                "popularity"]) \
+                   / popularity_data.loc[query_song]["popularity"]
+        else:
+            return 0
 
 
     def performance_metrics(feature_vector_1, feature_vector_2, feature_function_mode, genres, popularity_data,
@@ -305,19 +387,21 @@ if __name__ == "__main__":
         recall_arr_sum = 0
 
         for index, result in all_results.iterrows():
-            if not result.empty:
-                delta_mean_array[index_loop] = percent_delta_mean(spotify_data, index, result["results"])
+            if not result.empty and result != '':
+                print(result)
+                delta_mean_array[index_loop] = percent_delta_mean_2(spotify_data, index, result["results"])
 
-                precision_arr, recall_arr = precision_recall_plot(index, genres, result["results"])
+                precision_arr, recall_arr = precision_recall_plot_2(index, genres, result["results"])
 
                 precision_arr_sum = precision_arr_sum + precision_arr
                 recall_arr_sum = recall_arr_sum + recall_arr
 
-                precision_sum += precision_s(genres, index, result["results"])
-                mrr_sum += mrr_s(genres, index, result["results"])
-                ndcg_sum_10 += nDCG_ms(result["results"], genres, index, 10)
-                ndcg_sum_100 += nDCG_ms(result["results"], genres, index, 100)
+                precision_sum += precision_s_2(genres, index, result["results"])
+                mrr_sum += mrr_s_2(genres, index, result["results"])
+                ndcg_sum_10 += nDCG_ms_2(result["results"], genres, index, 10)
+                ndcg_sum_100 += nDCG_ms_2(result["results"], genres, index, 100)
                 index_loop += 1
+
 
         precision_arr_norm = precision_arr_sum / len(genres)
         recall_arr_norm = recall_arr_sum / len(genres)
