@@ -282,6 +282,20 @@ if __name__ == "__main__":
         else:
             return 0
 
+    def hubness(count_df):
+        hist = np.zeros(count_df["count"].max()+1)
+        for index, row in count_df.iterrows():
+            hist[row["count"]] = hist[row["count"]] + 1
+        freq = np.arange(0, len(hist), 1)
+        fx = freq * hist
+        mean = fx.sum() / len(count_df)
+        hist2 = (hist - mean) * (hist - mean) * (hist - mean)
+        expected = (freq * hist2).sum() / len(count_df)
+        variance = pow(((hist * freq**2).sum() / len(count_df)) - mean**2, 3)
+        return expected / variance
+
+
+
 
     def performance_metrics(feature_vector_1, feature_vector_2, feature_function_mode, genres, popularity_data,
                             n: int = 100, thv: float = 0.0):
@@ -357,9 +371,11 @@ if __name__ == "__main__":
     def merged_performance_metrics(tfidf_df, bert_df, genres, video_features_resnet_max, video_features_resnet_mean, mfcc_bow, spectral, spectral_contrast, spotify_data):
         all_results = pd.DataFrame(index=genres.index, columns=(["results"]))
         all_results.index.name = "id"
+        count_df = pd.DataFrame(index=genres.index, columns=(["count"])).fillna(0)
+        all_results.index.name = "id"
 
         splitted_dataset = np.array_split(genres, 14)
-        for dataset in splitted_dataset:
+        for dataset in splitted_dataset[0:1]:
             query_songs = dataset.index
             results_lyrics = sim_query(query_songs, tfidf_df, bert_df, 1)
             results_video = sim_query(query_songs, video_features_resnet_max, video_features_resnet_mean, 2)
@@ -375,6 +391,8 @@ if __name__ == "__main__":
 
             for col in res.columns:
                 res_largest = res[col].nlargest(100)
+                for index in res_largest.index.tolist():
+                    count_df.loc[index]["count"] = count_df.loc[index]["count"] + 1
                 all_results.loc[col]["results"] = res_largest.index.tolist()
 
         index_loop = 0
@@ -389,11 +407,12 @@ if __name__ == "__main__":
 
         all_results.dropna(inplace=True)
 
+        hubness_100 = hubness(count_df)
+
         all_results.to_csv("./resources/results.csv")
 
         for index, result in all_results.iterrows():
             if not result.empty or not pd.isna(result):
-                print(result)
                 delta_mean_array[index_loop] = percent_delta_mean_2(spotify_data, index, result["results"])
 
                 precision_arr, recall_arr = precision_recall_plot_2(index, genres, result["results"])
@@ -413,12 +432,15 @@ if __name__ == "__main__":
 
         plot_precision_recall(precision_arr_norm, recall_arr_norm, "All songs")
 
+
+
         print(f"Performan Metrics for All songs")
         print(f"Precision: {precision_sum / len(genres)}\n")
         print(f"MRR: {mrr_sum / len(genres)}\n")
         print(f"NDCG10: {ndcg_sum_10 / len(genres)}\n")
         print(f"NDCG100: {ndcg_sum_100 / len(genres)}\n")
         print(f"Median Delta Mean: {np.median(delta_mean_array)}")
+        print(f"Hubness k=100: {hubness_100}")
 
 
 
