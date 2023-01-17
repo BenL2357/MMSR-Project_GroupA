@@ -1,4 +1,5 @@
 import ast
+import math
 
 import numpy as np
 import pandas as pd
@@ -354,11 +355,11 @@ if __name__ == "__main__":
             all_songs), ndcg_sum_100 / len(all_songs)
 
     def merged_performance_metrics(tfidf_df, bert_df, genres, video_features_resnet_max, video_features_resnet_mean, mfcc_bow, spectral, spectral_contrast, spotify_data):
-        all_results = pd.DataFrame(index=genres.index, columns=(["results"])).fillna("").apply(list)
+        all_results = pd.DataFrame(index=genres.index, columns=(["results"]))
         all_results.index.name = "id"
 
         splitted_dataset = np.array_split(genres, 14)
-        for dataset in splitted_dataset[0:1]:
+        for dataset in splitted_dataset:
             query_songs = dataset.index
             results_lyrics = sim_query(query_songs, tfidf_df, bert_df, 1)
             results_video = sim_query(query_songs, video_features_resnet_max, video_features_resnet_mean, 2)
@@ -386,8 +387,12 @@ if __name__ == "__main__":
         precision_arr_sum = 0
         recall_arr_sum = 0
 
+        all_results.dropna(inplace=True)
+
+        all_results.to_csv("./resources/results.csv")
+
         for index, result in all_results.iterrows():
-            if not result.empty and result != '':
+            if not result.empty or not pd.isna(result):
                 print(result)
                 delta_mean_array[index_loop] = percent_delta_mean_2(spotify_data, index, result["results"])
 
