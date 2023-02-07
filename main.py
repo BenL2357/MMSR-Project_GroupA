@@ -13,6 +13,7 @@ import scipy.stats as stats
 METRIC_ON = False
 DEBUG = True and METRIC_ON
 SEED = 22031307
+FOLDER_ROOT = "./resources/ExperimentalData"
 
 if __name__ == "__main__":
 
@@ -374,8 +375,8 @@ if __name__ == "__main__":
         count_df = pd.DataFrame(index=genres.index, columns=(["count"])).fillna(0)
         all_results.index.name = "id"
 
-        splitted_dataset = np.array_split(genres, 14)
-        for dataset in splitted_dataset[0:1]:
+        splitted_dataset = np.array_split(genres, 3)
+        for dataset in splitted_dataset:
             query_songs = dataset.index
             results_lyrics = sim_query(query_songs, tfidf_df, bert_df, 1)
             results_video = sim_query(query_songs, video_features_resnet_max, video_features_resnet_mean, 2)
@@ -394,6 +395,10 @@ if __name__ == "__main__":
                 for index in res_largest.index.tolist():
                     count_df.loc[index]["count"] = count_df.loc[index]["count"] + 1
                 all_results.loc[col]["results"] = res_largest.index.tolist()
+
+        for key, value in all_results.iteritems():
+            if key in value:
+                print(key)
 
         index_loop = 0
         delta_mean_array = np.zeros(len(genres))
@@ -496,12 +501,12 @@ if __name__ == "__main__":
 
 
     def initialize():
-        tfidf_df = pd.read_csv('./resources/id_lyrics_tf-idf_mmsr.tsv', delimiter="\t", index_col="id").sort_values(
+        tfidf_df = pd.read_csv(f'{FOLDER_ROOT}/id_lyrics_tf-idf_mmsr.tsv', delimiter="\t", index_col="id").sort_values(
             "id")
-        bert_df = pd.read_csv('./resources/id_lyrics_bert_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
-        genres = pd.read_csv('./resources/id_genres_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
+        bert_df = pd.read_csv(f'{FOLDER_ROOT}/id_lyrics_bert_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
+        genres = pd.read_csv(f'{FOLDER_ROOT}/id_genres_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
 
-        video_features_resnet_output = pd.read_csv('./resources/id_resnet_mmsr.tsv', delimiter="\t",
+        video_features_resnet_output = pd.read_csv(f'{FOLDER_ROOT}/id_resnet_mmsr.tsv', delimiter="\t",
                                                    index_col="id").sort_values("id")
         video_features_resnet_output_mean = video_features_resnet_output.iloc[:, :2048]
         video_features_resnet_output_max = video_features_resnet_output.iloc[:, 2048:4096]
@@ -515,12 +520,12 @@ if __name__ == "__main__":
         video_features_resnet_max = pd.DataFrame(data=video_features_resnet_data_max, index=df_index)
         video_features_resnet_max.index.name = "id"
 
-        mfcc_bow = pd.read_csv('./resources/id_mfcc_bow_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
+        mfcc_bow = pd.read_csv(f'{FOLDER_ROOT}/id_mfcc_bow_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
 
-        spectral = pd.read_csv('./resources/id_blf_spectral_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
-        spectral_contrast = pd.read_csv('./resources/id_blf_spectralcontrast_mmsr.tsv', delimiter="\t",
+        spectral = pd.read_csv(f'{FOLDER_ROOT}/id_blf_spectral_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
+        spectral_contrast = pd.read_csv(f'{FOLDER_ROOT}/id_blf_spectralcontrast_mmsr.tsv', delimiter="\t",
                                         index_col="id").sort_values("id")
-        spotify_data = pd.read_csv('./resources/id_metadata_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
+        spotify_data = pd.read_csv(f'{FOLDER_ROOT}/id_metadata_mmsr.tsv', delimiter="\t", index_col="id").sort_values("id")
 
         genres["genre"] = genres["genre"].apply(ast.literal_eval)
 
