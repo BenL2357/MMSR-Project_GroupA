@@ -12,7 +12,7 @@ def sim_query_weight(input_query: [str], feature_vector_1, feature_vector_2=None
                                                    squared=True))) * second_weight
     elif feature_function_mode == 2 or feature_function_mode == 4:
         similarity = ((cosine_similarity(feature_vector_1.loc[input_query], feature_vector_1) * first_weight +
-                       cosine_similarity(feature_vector_2.loc[input_query], feature_vector_2) * 0.5) + 1) * second_weight
+                       cosine_similarity(feature_vector_2.loc[input_query], feature_vector_2) * second_weight) + 1) * 0.5
     elif feature_function_mode == 3:
         similarity = (cosine_similarity(feature_vector_1.loc[input_query], feature_vector_1) + 1)
     else:
@@ -70,21 +70,13 @@ def main_weight(tfidf_df, bert_df, genres, video_features_resnet_max, video_feat
             if not result.empty or not pd.isna(result):
                 delta_mean_array[index_loop] = percent_delta_mean_2(spotify_data, index, result["results"])
 
-                precision_arr, recall_arr = precision_recall_plot_2(index, genres, result["results"])
-
-                precision_arr_sum = precision_arr_sum + precision_arr
-                recall_arr_sum = recall_arr_sum + recall_arr
-
                 precision_sum += precision_s_2(genres, index, result["results"])
                 mrr_sum += mrr_s_2(genres, index, result["results"])
                 ndcg_sum_10 += nDCG_ms_2(result["results"], genres, index, 10)
                 ndcg_sum_100 += nDCG_ms_2(result["results"], genres, index, 100)
                 index_loop += 1
 
-        precision_arr_norm = precision_arr_sum / len(genres)
-        recall_arr_norm = recall_arr_sum / len(genres)
 
-        plot_precision_recall(precision_arr_norm, recall_arr_norm, "All songs")
 
         print(f"Performan Metrics for {idx} {len(genres)} songs")
         print(f"Precision: {precision_sum / len(genres)}\n")

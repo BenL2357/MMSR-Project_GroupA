@@ -17,12 +17,15 @@ FOLDER_ROOT = "./resources/ExperimentalData"
 
 def sim_query(input_query: [str], feature_vector_1, feature_vector_2=None, feature_function_mode=0):
     if feature_function_mode == 1:
-        similarity = ((cosine_similarity(feature_vector_1.loc[input_query], feature_vector_1) + 1) * 0.5) * 0.5 + \
-                     (1 / (1 + euclidean_distances(feature_vector_2.loc[input_query], feature_vector_2,
-                                                   squared=True))) * 0.5
-    elif feature_function_mode == 2 or feature_function_mode == 4:
-        similarity = ((cosine_similarity(feature_vector_1.loc[input_query], feature_vector_1) * 0.5 +
-                       cosine_similarity(feature_vector_2.loc[input_query], feature_vector_2) * 0.5) + 1) * 0.5
+        similarity = (1 / (1 + euclidean_distances(feature_vector_2.loc[input_query], feature_vector_2,
+                                                   squared=True)))
+    elif feature_function_mode == 2:
+        similarity = ((cosine_similarity(feature_vector_1.loc[input_query], feature_vector_1) * 0.8 +
+                       cosine_similarity(feature_vector_2.loc[input_query], feature_vector_2) * 0.5) + 1) * 0.2
+    elif feature_function_mode == 4:
+        similarity = ((cosine_similarity(feature_vector_1.loc[input_query], feature_vector_1) * 0.4 +
+                       cosine_similarity(feature_vector_2.loc[input_query],
+                                         feature_vector_2) * 0.5) + 1) * 0.6
     elif feature_function_mode == 3:
         similarity = (cosine_similarity(feature_vector_1.loc[input_query], feature_vector_1) + 1)
     else:
@@ -218,7 +221,11 @@ def precision_recall_plot(song, genres, results, do_cut=True):
             relevance_class[iter_index] = 1
         iter_index += 1
 
-    relevant_sum = relevance_class.sum()
+    relevant_sum = 0
+    for index, row in genres.iterrows():
+        if len(np.intersect1d(genres.loc[index]["genre"], song_genre)) >= 1:
+            relevant_sum += 1
+
     precision = np.zeros(101)
     recall = np.zeros(101)
     precision[0] = 1
@@ -246,7 +253,11 @@ def precision_recall_plot_2(song, genres, results):
             relevance_class[iter_index] = 1
         iter_index += 1
 
-    relevant_sum = relevance_class.sum()
+    relevant_sum = 0
+    for index, row in genres.iterrows():
+        if len(np.intersect1d(genres.loc[index]["genre"], song_genre)) >= 1:
+            relevant_sum += 1
+
     precision = np.zeros(101)
     recall = np.zeros(101)
     precision[0] = 1
@@ -420,7 +431,9 @@ def merged_performance_metrics(tfidf_df, bert_df, genres, video_features_resnet_
         if not result.empty or not pd.isna(result):
             delta_mean_array[index_loop] = percent_delta_mean_2(spotify_data, index, result["results"])
 
+            print("Test1")
             precision_arr, recall_arr = precision_recall_plot_2(index, genres, result["results"])
+            print("Test2")
 
             precision_arr_sum = precision_arr_sum + precision_arr
             recall_arr_sum = recall_arr_sum + recall_arr
