@@ -206,6 +206,18 @@ def plot_precision_recall(precision_to_plot, recall_to_plot, label, ylim_min=0.5
     plt.show()
 
 
+def plot_precision_recall(plot_precision_vals):
+
+    for k, v in plot_precision_vals:
+        plt.plot(v[0], v[1], lable=k)
+
+    plt.title("Precision-Recall Curve for Top 100 results")
+    plt.ylabel("Precision")
+    plt.xlabel("Recall")
+
+    plt.show()
+
+
 def precision_recall_plot(song, genres, results, do_cut=True):
     if do_cut:
         result_cut = results.nlargest(100, "similarity")
@@ -249,8 +261,7 @@ def precision_recall_plot_2(song, genres, results):
             relevance_class[iter_index] = 1
         iter_index += 1
 
-    relevant_sum = 1
-
+    relevant_sum = relevance_class.sum()
     precision = np.zeros(101)
     recall = np.zeros(101)
     precision[0] = 1
@@ -315,6 +326,9 @@ def performance_metrics(feature_vector_1, feature_vector_2, feature_function_mod
     precision_arr_sum = 0
     recall_arr_sum = 0
     delta_mean_array = np.zeros(n)
+
+    precision_recall_vals = dict()
+
     for song in all_songs:
         res = pd.DataFrame(index=feature_vector_1.index.tolist())
         res.index.name = "id"
@@ -357,7 +371,8 @@ def performance_metrics(feature_vector_1, feature_vector_2, feature_function_mod
         else:
             metric_name = "Undefinied"
 
-        plot_precision_recall(precision_arr_norm, recall_arr_norm, metric_name)
+        precision_recall_vals[metric_name] = (precision_arr_norm, recall_arr_norm)
+        #plot_precision_recall(precision_arr_norm, recall_arr_norm, metric_name)
 
     if DEBUG:
         print(f"Performan Metrics for {metric_name}")
@@ -366,6 +381,8 @@ def performance_metrics(feature_vector_1, feature_vector_2, feature_function_mod
         print(f"NDCG10: {ndcg_sum_10 / len(all_songs)}\n")
         print(f"NDCG100: {ndcg_sum_100 / len(all_songs)}\n")
         print(f"Median Delta Mean: {np.median(delta_mean_array)}")
+
+    plot_precision_recall(precision_recall_vals)
 
     return precision_sum / len(all_songs), mrr_sum / len(all_songs), ndcg_sum_10 / len(
         all_songs), ndcg_sum_100 / len(all_songs)
@@ -436,13 +453,6 @@ def merged_performance_metrics(tfidf_df, bert_df, genres, video_features_resnet_
                 all_results.loc[col]["results"] = res_largest.index.tolist()
             iter_counter += len(dataset)
 
-
-
-
-    for key, value in all_results.iterrows():
-        if key in value["results"]:
-            print(key)
-
     index_loop = 0
     delta_mean_array = np.zeros(len(genres))
     precision_sum = 0
@@ -459,6 +469,9 @@ def merged_performance_metrics(tfidf_df, bert_df, genres, video_features_resnet_
     hubness_10 = hubness(count_df2)
 
     all_results.to_csv("./resources/results.csv")
+
+    # load similar songs count
+    # give it to the percision recall plot function
 
     for index, result in all_results.iterrows():
         if not result.empty or not pd.isna(result):
