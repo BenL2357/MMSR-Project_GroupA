@@ -13,7 +13,7 @@ import scipy.stats as stats
 METRIC_ON = False
 DEBUG = True and METRIC_ON
 SEED = 22031307
-FOLDER_ROOT = "./resources"
+FOLDER_ROOT = "./resources/ExperimentalData"
 USE_BORDA_COUNT = False
 
 def sim_query(input_query: [str], feature_vector_1, feature_vector_2=None, feature_function_mode=0):
@@ -327,7 +327,6 @@ def performance_metrics(feature_vector_1, feature_vector_2, feature_function_mod
     recall_arr_sum = 0
     delta_mean_array = np.zeros(n)
 
-    precision_recall_vals = dict()
 
     for song in all_songs:
         res = pd.DataFrame(index=feature_vector_1.index.tolist())
@@ -381,8 +380,6 @@ def performance_metrics(feature_vector_1, feature_vector_2, feature_function_mod
         print(f"NDCG10: {ndcg_sum_10 / len(all_songs)}\n")
         print(f"NDCG100: {ndcg_sum_100 / len(all_songs)}\n")
         print(f"Median Delta Mean: {np.median(delta_mean_array)}")
-
-    plot_precision_recall(precision_recall_vals)
 
     return precision_sum / len(all_songs), mrr_sum / len(all_songs), ndcg_sum_10 / len(
         all_songs), ndcg_sum_100 / len(all_songs)
@@ -604,11 +601,15 @@ if __name__ == "__main__":
           f"Genre frequency to genre count: {genre_dict_genre_frequency}\n"
           f"Average genres per song: {average_genres_song:.4f}\n")
     # performance_metrics_s_baseline(tfidf_df, genres)
-    # performance_metrics(tfidf_df, bert_df, 1, genres, spotify_data, 10000, thv=0.55)
-    # performance_metrics(video_features_resnet_max, video_features_resnet_mean, 2, genres, spotify_data, 10000)
-    # performance_metrics(mfcc_bow, None, 3, genres, spotify_data, 10000)
-    # performance_metrics(spectral, spectral_contrast, 4, genres, spotify_data, 10000)
-    merged_performance_metrics(tfidf_df, bert_df, genres, video_features_resnet_max, video_features_resnet_mean,
-                               mfcc_bow, spectral, spectral_contrast, spotify_data)
-    kendall_tau_correlation_calculation(tfidf_df, bert_df, video_features_resnet_max, video_features_resnet_mean,
-                                        mfcc_bow, spectral, spectral_contrast)
+    precision_recall_vals = dict()
+    performance_metrics(tfidf_df, bert_df, 1, genres, spotify_data, 10000, thv=0.55)
+    performance_metrics(video_features_resnet_max, video_features_resnet_mean, 2, genres, spotify_data, 10000)
+    performance_metrics(mfcc_bow, None, 3, genres, spotify_data, 10000)
+    performance_metrics(spectral, spectral_contrast, 4, genres, spotify_data, 10000)
+
+    plot_precision_recall(precision_recall_vals)
+
+    #merged_performance_metrics(tfidf_df, bert_df, genres, video_features_resnet_max, video_features_resnet_mean,
+    #                           mfcc_bow, spectral, spectral_contrast, spotify_data)
+    #kendall_tau_correlation_calculation(tfidf_df, bert_df, video_features_resnet_max, video_features_resnet_mean,
+    #                                    mfcc_bow, spectral, spectral_contrast)
