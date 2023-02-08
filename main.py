@@ -13,7 +13,7 @@ import scipy.stats as stats
 METRIC_ON = False
 DEBUG = True and METRIC_ON
 SEED = 22031307
-FOLDER_ROOT = "./resources/ExperimentalData"
+FOLDER_ROOT = "./resources"
 USE_BORDA_COUNT = False
 
 def sim_query(input_query: [str], feature_vector_1, feature_vector_2=None, feature_function_mode=0):
@@ -220,8 +220,8 @@ def precision_recall_plot(song, genres, results, do_cut=True):
             relevance_class[iter_index] = 1
         iter_index += 1
 
-    relevant_sum = 0
 
+    relevant_sum = 0
     precision = np.zeros(101)
     recall = np.zeros(101)
     precision[0] = 1
@@ -376,11 +376,13 @@ def merged_performance_metrics(tfidf_df, bert_df, genres, video_features_resnet_
     all_results = pd.DataFrame(index=genres.index, columns=(["results"]))
     all_results.index.name = "id"
     count_df = pd.DataFrame(index=genres.index, columns=(["count"])).fillna(0)
+    count_df2 = pd.DataFrame(index=genres.index, columns=(["count"])).fillna(0)
     all_results.index.name = "id"
 
-    splitted_dataset = np.array_split(genres, 3)
+    splitted_dataset = np.array_split(genres, 14)
     iter_counter = 0
     for dataset in splitted_dataset:
+        print(f"Bin nr{iter_counter+1}")
         query_songs = dataset.index
         results_lyrics = sim_query(query_songs, tfidf_df, bert_df, 1)
         results_video = sim_query(query_songs, video_features_resnet_max, video_features_resnet_mean, 2)
@@ -418,6 +420,7 @@ def merged_performance_metrics(tfidf_df, bert_df, genres, video_features_resnet_
                 all_results.loc[col]["results"] = test2
             iter_counter += len(dataset)
         else:
+            #filter out similar song
             for i in range(len(query_songs)):
                 results[i, i + iter_counter] = 0
 
@@ -428,6 +431,8 @@ def merged_performance_metrics(tfidf_df, bert_df, genres, video_features_resnet_
                 res_largest = res[col].nlargest(100)
                 for index in res_largest.index.tolist():
                     count_df.loc[index]["count"] = count_df.loc[index]["count"] + 1
+                for index in res_largest.index.tolist()[:10]:
+                    count_df2.loc[index]["count"] = count_df2.loc[index]["count"] + 1.
                 all_results.loc[col]["results"] = res_largest.index.tolist()
             iter_counter += len(dataset)
 
@@ -451,6 +456,7 @@ def merged_performance_metrics(tfidf_df, bert_df, genres, video_features_resnet_
     all_results.dropna(inplace=True)
 
     hubness_100 = hubness(count_df)
+    hubness_10 = hubness(count_df2)
 
     all_results.to_csv("./resources/results.csv")
 
@@ -481,6 +487,7 @@ def merged_performance_metrics(tfidf_df, bert_df, genres, video_features_resnet_
     print(f"NDCG100: {ndcg_sum_100 / len(genres)}\n")
     print(f"Median Delta Mean: {np.median(delta_mean_array)}")
     print(f"Hubness k=100: {hubness_100}")
+    print(f"Hubness k=10: {hubness_10}")
 
 def kendall_tau_correlation_calculation(tfidf_df, bert_df, video_features_resnet_max, video_features_resnet_mean,
                                         mfcc_bow, spectral, spectral_contrast, song_count=1000):
@@ -567,7 +574,17 @@ if __name__ == "__main__":
     tfidf_df, bert_df, genres, video_features_resnet_max, video_features_resnet_mean, mfcc_bow, spectral, spectral_contrast, spotify_data = initialize()
     genre_dict = get_genre_distribution(genres)
     genre_dict_frequency = {k: round(v / len(genres), 4) for k, v in genre_dict.items()}
+    plt.bar(list(genre_dict_frequency.keys())[0:10], list(genre_dict_frequency.values())[0:10], color='g')
+    plt.xticks(rotation = 90)
+    plt.title("10 most frequent genres in relation to song count")
+    plt.tight_layout()
+    plt.show()
     genre_dict_genre_frequency = {k: round(v / sum(genre_dict.values()), 4) for k, v in genre_dict.items()}
+    plt.bar(list(genre_dict_genre_frequency.keys())[0:10], list(genre_dict_genre_frequency.values())[0:10], color='b')
+    plt.xticks(rotation=90)
+    plt.title("10 most frequent genres in relation to genre count")
+    plt.tight_layout()
+    plt.show()
     average_genres_song = sum(genre_dict.values()) / len(genres)
     print(f"Genre: {genre_dict}\nGenre count: {len(genre_dict)}\n"
           f"Genre frequency to song count: {genre_dict_frequency}\n"
