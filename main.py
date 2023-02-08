@@ -606,14 +606,14 @@ if __name__ == "__main__":
     """
     # performance_metrics_s_baseline(tfidf_df, genres)
     precision_recall_vals = []
-    performance_metrics(tfidf_df, bert_df, 1, genres, spotify_data, 5000)
-    performance_metrics(video_features_resnet_max, video_features_resnet_mean, 2, genres, spotify_data, 5000)
-    performance_metrics(mfcc_bow, None, 3, genres, spotify_data, 5000)
-    performance_metrics(spectral, spectral_contrast, 4, genres, spotify_data, 5000)
+    #performance_metrics(tfidf_df, bert_df, 1, genres, spotify_data, 5000)
+    #performance_metrics(video_features_resnet_max, video_features_resnet_mean, 2, genres, spotify_data, 5000)
+    #performance_metrics(mfcc_bow, None, 3, genres, spotify_data, 5000)
+    #performance_metrics(spectral, spectral_contrast, 4, genres, spotify_data, 5000)
 
-    plot_precision_recall_2(precision_recall_vals)
+    #plot_precision_recall_2(precision_recall_vals)
 
-    #merged_performance_metrics(tfidf_df, bert_df, genres, video_features_resnet_max, video_features_resnet_mean,
-    #                           mfcc_bow, spectral, spectral_contrast, spotify_data)
+    merged_performance_metrics(tfidf_df, bert_df, genres, video_features_resnet_max, video_features_resnet_mean,
+                               mfcc_bow, spectral, spectral_contrast, spotify_data)
     #kendall_tau_correlation_calculation(tfidf_df, bert_df, video_features_resnet_max, video_features_resnet_mean,
     #                                    mfcc_bow, spectral, spectral_contrast)
