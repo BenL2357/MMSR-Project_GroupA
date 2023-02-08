@@ -10,12 +10,14 @@ import matplotlib.pyplot as plt
 import scipy.stats as stats
 
 # Flag for couple of print values
-METRIC_ON = False
+METRIC_ON = True
 DEBUG = True and METRIC_ON
 SEED = 22031307
 FOLDER_ROOT = "./resources/ExperimentalData"
 USE_BORDA_COUNT = False
 
+# Function to compute all the similarities based on the feature vectors provided
+# Weights used are the result from the iteration
 def sim_query(input_query: [str], feature_vector_1, feature_vector_2=None, feature_function_mode=0):
     if feature_function_mode == 1:
         similarity = (1 / (1 + euclidean_distances(feature_vector_2.loc[input_query], feature_vector_2,
@@ -206,12 +208,14 @@ def plot_precision_recall(precision_to_plot, recall_to_plot, label, ylim_min=0.5
     plt.show()
 
 
-def plot_precision_recall(plot_precision_vals):
+def plot_precision_recall_2(plot_precision_vals):
+    labels = ["Lyric Feature: BERT", "Video Features: VGG19", "Audio Feature: MFCC BoW",
+              "Audio BL Features: Spectral, Spectral Contrast"]
+    for i in range(len(plot_precision_vals)):
+        plt.plot(plot_precision_vals[i][0], plot_precision_vals[i][1], label=labels[i])
 
-    for k, v in plot_precision_vals:
-        plt.plot(v[0], v[1], lable=k)
-
-    plt.title("Precision-Recall Curve for Top 100 results")
+    plt.title("Precision-Recall Curve")
+    plt.legend()
     plt.ylabel("Precision")
     plt.xlabel("Recall")
 
@@ -232,8 +236,7 @@ def precision_recall_plot(song, genres, results, do_cut=True):
             relevance_class[iter_index] = 1
         iter_index += 1
 
-
-    relevant_sum = 0
+    relevant_sum = relevance_class.sum()
     precision = np.zeros(101)
     recall = np.zeros(101)
     precision[0] = 1
@@ -249,7 +252,6 @@ def precision_recall_plot(song, genres, results, do_cut=True):
             recall[index] = 0
 
     return precision, recall
-
 
 def precision_recall_plot_2(song, genres, results):
     relevance_class = np.zeros(100)
@@ -318,7 +320,7 @@ def performance_metrics(feature_vector_1, feature_vector_2, feature_function_mod
     ndcg_sum_100 = 0
 
     # getting all alphanumeric indices for all songs
-    all_songs = feature_vector_1.sample(n=n, random_state=SEED).index.tolist()
+    all_songs = feature_vector_1.index.tolist()#feature_vector_1.sample(n=n, random_state=SEED).index.tolist()
 
     index_loop = 0
 
@@ -360,7 +362,7 @@ def performance_metrics(feature_vector_1, feature_vector_2, feature_function_mod
         recall_arr_norm = recall_arr_sum / len(all_songs)
 
         if feature_function_mode == 1:
-            metric_name = "Lyric Features: TF-IDF, BERT"
+            metric_name = "Lyric Feature: BERT"
         elif feature_function_mode == 2:
             metric_name = "Video Features: VGG19"
         elif feature_function_mode == 3:
@@ -370,7 +372,7 @@ def performance_metrics(feature_vector_1, feature_vector_2, feature_function_mod
         else:
             metric_name = "Undefinied"
 
-        precision_recall_vals[metric_name] = (precision_arr_norm, recall_arr_norm)
+        precision_recall_vals.append([precision_arr_norm, recall_arr_norm])
         #plot_precision_recall(precision_arr_norm, recall_arr_norm, metric_name)
 
     if DEBUG:
@@ -582,6 +584,7 @@ def initialize():
 
 if __name__ == "__main__":
     tfidf_df, bert_df, genres, video_features_resnet_max, video_features_resnet_mean, mfcc_bow, spectral, spectral_contrast, spotify_data = initialize()
+    """
     genre_dict = get_genre_distribution(genres)
     genre_dict_frequency = {k: round(v / len(genres), 4) for k, v in genre_dict.items()}
     plt.bar(list(genre_dict_frequency.keys())[0:10], list(genre_dict_frequency.values())[0:10], color='g')
@@ -600,14 +603,15 @@ if __name__ == "__main__":
           f"Genre frequency to song count: {genre_dict_frequency}\n"
           f"Genre frequency to genre count: {genre_dict_genre_frequency}\n"
           f"Average genres per song: {average_genres_song:.4f}\n")
+    """
     # performance_metrics_s_baseline(tfidf_df, genres)
-    precision_recall_vals = dict()
-    performance_metrics(tfidf_df, bert_df, 1, genres, spotify_data, 10000, thv=0.55)
-    performance_metrics(video_features_resnet_max, video_features_resnet_mean, 2, genres, spotify_data, 10000)
-    performance_metrics(mfcc_bow, None, 3, genres, spotify_data, 10000)
-    performance_metrics(spectral, spectral_contrast, 4, genres, spotify_data, 10000)
+    precision_recall_vals = []
+    performance_metrics(tfidf_df, bert_df, 1, genres, spotify_data, 5000)
+    performance_metrics(video_features_resnet_max, video_features_resnet_mean, 2, genres, spotify_data, 5000)
+    performance_metrics(mfcc_bow, None, 3, genres, spotify_data, 5000)
+    performance_metrics(spectral, spectral_contrast, 4, genres, spotify_data, 5000)
 
-    plot_precision_recall(precision_recall_vals)
+    plot_precision_recall_2(precision_recall_vals)
 
     #merged_performance_metrics(tfidf_df, bert_df, genres, video_features_resnet_max, video_features_resnet_mean,
     #                           mfcc_bow, spectral, spectral_contrast, spotify_data)
