@@ -14,6 +14,7 @@ METRIC_ON = False
 DEBUG = True and METRIC_ON
 SEED = 22031307
 FOLDER_ROOT = "./resources/ExperimentalData"
+USE_BORDA_COUNT = False
 
 def sim_query(input_query: [str], feature_vector_1, feature_vector_2=None, feature_function_mode=0):
     if feature_function_mode == 1:
@@ -21,11 +22,12 @@ def sim_query(input_query: [str], feature_vector_1, feature_vector_2=None, featu
                                                    squared=True)))
     elif feature_function_mode == 2:
         similarity = ((cosine_similarity(feature_vector_1.loc[input_query], feature_vector_1) * 0.8 +
-                       cosine_similarity(feature_vector_2.loc[input_query], feature_vector_2) * 0.5) + 1) * 0.2
+                       cosine_similarity(feature_vector_2.loc[input_query],
+                                         feature_vector_2) * 0.2) + 1) * 0.5
     elif feature_function_mode == 4:
         similarity = ((cosine_similarity(feature_vector_1.loc[input_query], feature_vector_1) * 0.4 +
                        cosine_similarity(feature_vector_2.loc[input_query],
-                                         feature_vector_2) * 0.5) + 1) * 0.6
+                                         feature_vector_2) * 0.6) + 1) * 0.5
     elif feature_function_mode == 3:
         similarity = (cosine_similarity(feature_vector_1.loc[input_query], feature_vector_1) + 1)
     else:
@@ -34,7 +36,6 @@ def sim_query(input_query: [str], feature_vector_1, feature_vector_2=None, featu
 
 
 def precision_s(genres, input_query: str, results):
-
     input_genres = genres.loc[input_query]["genre"]
 
     hits = 0
@@ -44,8 +45,8 @@ def precision_s(genres, input_query: str, results):
 
     return hits / len(results)
 
-def precision_s_2(genres, input_query: str, results):
 
+def precision_s_2(genres, input_query: str, results):
     input_genres = genres.loc[input_query]["genre"]
 
     hits = 0
@@ -57,7 +58,6 @@ def precision_s_2(genres, input_query: str, results):
 
 
 def mrr_s(genres, input_query: str, results):
-
     input_genres = genres.loc[input_query]["genre"]
 
     tries = 1
@@ -69,8 +69,8 @@ def mrr_s(genres, input_query: str, results):
 
     return 1 / tries
 
-def mrr_s_2(genres, input_query: str, results):
 
+def mrr_s_2(genres, input_query: str, results):
     input_genres = genres.loc[input_query]["genre"]
 
     tries = 1
@@ -84,7 +84,6 @@ def mrr_s_2(genres, input_query: str, results):
 
 
 def nDCG_ms(results, genres, input_query: str, p: int):
-
     input_genres = genres.loc[input_query]["genre"]
     relevance_scores = np.zeros((p))
 
@@ -105,8 +104,8 @@ def nDCG_ms(results, genres, input_query: str, p: int):
 
     return DCG / IDCG
 
-def nDCG_ms_2(results, genres, input_query: str, p: int):
 
+def nDCG_ms_2(results, genres, input_query: str, p: int):
     input_genres = genres.loc[input_query]["genre"]
     relevance_scores = np.zeros((p))
 
@@ -222,9 +221,6 @@ def precision_recall_plot(song, genres, results, do_cut=True):
         iter_index += 1
 
     relevant_sum = 0
-    for index, row in genres.iterrows():
-        if len(np.intersect1d(genres.loc[index]["genre"], song_genre)) >= 1:
-            relevant_sum += 1
 
     precision = np.zeros(101)
     recall = np.zeros(101)
@@ -242,8 +238,8 @@ def precision_recall_plot(song, genres, results, do_cut=True):
 
     return precision, recall
 
-def precision_recall_plot_2(song, genres, results):
 
+def precision_recall_plot_2(song, genres, results):
     relevance_class = np.zeros(100)
     song_genre = genres.loc[song]["genre"]
 
@@ -253,10 +249,7 @@ def precision_recall_plot_2(song, genres, results):
             relevance_class[iter_index] = 1
         iter_index += 1
 
-    relevant_sum = 0
-    for index, row in genres.iterrows():
-        if len(np.intersect1d(genres.loc[index]["genre"], song_genre)) >= 1:
-            relevant_sum += 1
+    relevant_sum = 1
 
     precision = np.zeros(101)
     recall = np.zeros(101)
@@ -292,8 +285,9 @@ def percent_delta_mean_2(popularity_data, query_song, query_results):
     else:
         return 0
 
+
 def hubness(count_df):
-    hist = np.zeros(count_df["count"].max()+1)
+    hist = np.zeros(count_df["count"].max() + 1)
     for index, row in count_df.iterrows():
         hist[row["count"]] = hist[row["count"]] + 1
     freq = np.arange(0, len(hist), 1)
@@ -303,8 +297,6 @@ def hubness(count_df):
     expected = (freq * hist2).sum() / len(count_df)
     standard_deviation = ((hist - mean) * (hist - mean)).sum() / (len(hist) - 1)
     return expected / pow(standard_deviation, 3)
-
-
 
 
 def performance_metrics(feature_vector_1, feature_vector_2, feature_function_mode, genres, popularity_data,
@@ -378,7 +370,9 @@ def performance_metrics(feature_vector_1, feature_vector_2, feature_function_mod
     return precision_sum / len(all_songs), mrr_sum / len(all_songs), ndcg_sum_10 / len(
         all_songs), ndcg_sum_100 / len(all_songs)
 
-def merged_performance_metrics(tfidf_df, bert_df, genres, video_features_resnet_max, video_features_resnet_mean, mfcc_bow, spectral, spectral_contrast, spotify_data):
+
+def merged_performance_metrics(tfidf_df, bert_df, genres, video_features_resnet_max, video_features_resnet_mean,
+                               mfcc_bow, spectral, spectral_contrast, spotify_data):
     all_results = pd.DataFrame(index=genres.index, columns=(["results"]))
     all_results.index.name = "id"
     count_df = pd.DataFrame(index=genres.index, columns=(["count"])).fillna(0)
@@ -394,18 +388,51 @@ def merged_performance_metrics(tfidf_df, bert_df, genres, video_features_resnet_
         results_audio_spectral = sim_query(query_songs, spectral, spectral_contrast, 4)
 
         results = results_lyrics * 0.25 + results_video * 0.25 + results_audio_bow * 0.25 + results_audio_spectral * 0.25
-        for i in range(len(query_songs)):
-            results[i, i+iter_counter] = 0
+        result_list = [results_lyrics, results_video, results_audio_bow, results_audio_spectral]
+        #Borda count
+        if USE_BORDA_COUNT:
+            borda_count_dict = {}
+            for index, value in enumerate(result_list):
+                results = value
 
-        res = pd.DataFrame(results.T, index=genres.index, columns=query_songs)
-        res.index.name = "id"
+                for i in range(len(query_songs)):
+                    results[i, i + iter_counter] = 0
 
-        for col in res.columns:
-            res_largest = res[col].nlargest(100)
-            for index in res_largest.index.tolist():
-                count_df.loc[index]["count"] = count_df.loc[index]["count"] + 1
-            all_results.loc[col]["results"] = res_largest.index.tolist()
-        iter_counter += len(dataset)
+                res = pd.DataFrame(results.T, index=genres.index, columns=query_songs)
+                res.index.name = "id"
+
+                for col in res.columns:
+                    if col not in borda_count_dict:
+                        borda_count_dict[col] = dict()
+                    res_largest = res[col].nlargest(100)
+                    for i in range(len(res_largest)):
+                        if res_largest.index[i] in borda_count_dict[col]:
+                            borda_count_dict[col][res_largest.index[i]] += (1 / (i+1))
+                        else:
+                            borda_count_dict[col][res_largest.index[i]] = (1 / (i+1))
+            for col in borda_count_dict:
+                test = list(reversed(sorted(borda_count_dict[col].items(), key=lambda x:x[1])))
+                test2 = [x[0] for x in test][:100]
+                for index in test2:
+                    count_df.loc[index]["count"] = count_df.loc[index]["count"] + 1
+                all_results.loc[col]["results"] = test2
+            iter_counter += len(dataset)
+        else:
+            for i in range(len(query_songs)):
+                results[i, i + iter_counter] = 0
+
+            res = pd.DataFrame(results.T, index=genres.index, columns=query_songs)
+            res.index.name = "id"
+
+            for col in res.columns:
+                res_largest = res[col].nlargest(100)
+                for index in res_largest.index.tolist():
+                    count_df.loc[index]["count"] = count_df.loc[index]["count"] + 1
+                all_results.loc[col]["results"] = res_largest.index.tolist()
+            iter_counter += len(dataset)
+
+
+
 
     for key, value in all_results.iterrows():
         if key in value["results"]:
@@ -431,9 +458,7 @@ def merged_performance_metrics(tfidf_df, bert_df, genres, video_features_resnet_
         if not result.empty or not pd.isna(result):
             delta_mean_array[index_loop] = percent_delta_mean_2(spotify_data, index, result["results"])
 
-            print("Test1")
             precision_arr, recall_arr = precision_recall_plot_2(index, genres, result["results"])
-            print("Test2")
 
             precision_arr_sum = precision_arr_sum + precision_arr
             recall_arr_sum = recall_arr_sum + recall_arr
@@ -444,13 +469,10 @@ def merged_performance_metrics(tfidf_df, bert_df, genres, video_features_resnet_
             ndcg_sum_100 += nDCG_ms_2(result["results"], genres, index, 100)
             index_loop += 1
 
-
     precision_arr_norm = precision_arr_sum / len(genres)
     recall_arr_norm = recall_arr_sum / len(genres)
 
     plot_precision_recall(precision_arr_norm, recall_arr_norm, "All songs")
-
-
 
     print(f"Performan Metrics for {len(genres)} songs")
     print(f"Precision: {precision_sum / len(genres)}\n")
@@ -459,10 +481,6 @@ def merged_performance_metrics(tfidf_df, bert_df, genres, video_features_resnet_
     print(f"NDCG100: {ndcg_sum_100 / len(genres)}\n")
     print(f"Median Delta Mean: {np.median(delta_mean_array)}")
     print(f"Hubness k=100: {hubness_100}")
-
-
-
-
 
 def kendall_tau_correlation_calculation(tfidf_df, bert_df, video_features_resnet_max, video_features_resnet_mean,
                                         mfcc_bow, spectral, spectral_contrast, song_count=1000):
@@ -556,10 +574,11 @@ if __name__ == "__main__":
           f"Genre frequency to genre count: {genre_dict_genre_frequency}\n"
           f"Average genres per song: {average_genres_song:.4f}\n")
     # performance_metrics_s_baseline(tfidf_df, genres)
-    #performance_metrics(tfidf_df, bert_df, 1, genres, spotify_data, 10000, thv=0.55)
-    #performance_metrics(video_features_resnet_max, video_features_resnet_mean, 2, genres, spotify_data, 10000)
-    #performance_metrics(mfcc_bow, None, 3, genres, spotify_data, 10000)
-    #performance_metrics(spectral, spectral_contrast, 4, genres, spotify_data, 10000)
-    merged_performance_metrics(tfidf_df, bert_df, genres, video_features_resnet_max, video_features_resnet_mean, mfcc_bow, spectral, spectral_contrast, spotify_data)
+    # performance_metrics(tfidf_df, bert_df, 1, genres, spotify_data, 10000, thv=0.55)
+    # performance_metrics(video_features_resnet_max, video_features_resnet_mean, 2, genres, spotify_data, 10000)
+    # performance_metrics(mfcc_bow, None, 3, genres, spotify_data, 10000)
+    # performance_metrics(spectral, spectral_contrast, 4, genres, spotify_data, 10000)
+    merged_performance_metrics(tfidf_df, bert_df, genres, video_features_resnet_max, video_features_resnet_mean,
+                               mfcc_bow, spectral, spectral_contrast, spotify_data)
     kendall_tau_correlation_calculation(tfidf_df, bert_df, video_features_resnet_max, video_features_resnet_mean,
                                         mfcc_bow, spectral, spectral_contrast)

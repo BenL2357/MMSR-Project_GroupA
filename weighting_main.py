@@ -4,7 +4,7 @@ from main import *
 from main import initialize
 
 def sim_query_weight(input_query: [str], feature_vector_1, feature_vector_2=None, feature_function_mode=0):
-    first_weight = 0.3
+    first_weight = 0.5
     second_weight = 1.0 - first_weight
     if feature_function_mode == 1:
         similarity = ((cosine_similarity(feature_vector_1.loc[input_query], feature_vector_1) + 1) * 0.5) * first_weight + \
