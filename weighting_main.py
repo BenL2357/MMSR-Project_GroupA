@@ -4,13 +4,15 @@ from main import *
 from main import initialize
 
 def sim_query_weight(input_query: [str], feature_vector_1, feature_vector_2=None, feature_function_mode=0):
+    first_weight = 0.3
+    second_weight = 1.0 - first_weight
     if feature_function_mode == 1:
-        similarity = ((cosine_similarity(feature_vector_1.loc[input_query], feature_vector_1) + 1) * 0.5) * 0.3 + \
+        similarity = ((cosine_similarity(feature_vector_1.loc[input_query], feature_vector_1) + 1) * 0.5) * first_weight + \
                      (1 / (1 + euclidean_distances(feature_vector_2.loc[input_query], feature_vector_2,
-                                                   squared=True))) * 0.7
+                                                   squared=True))) * second_weight
     elif feature_function_mode == 2 or feature_function_mode == 4:
-        similarity = ((cosine_similarity(feature_vector_1.loc[input_query], feature_vector_1) * 0.3 +
-                       cosine_similarity(feature_vector_2.loc[input_query], feature_vector_2) * 0.5) + 1) * 0.7
+        similarity = ((cosine_similarity(feature_vector_1.loc[input_query], feature_vector_1) * first_weight +
+                       cosine_similarity(feature_vector_2.loc[input_query], feature_vector_2) * 0.5) + 1) * second_weight
     elif feature_function_mode == 3:
         similarity = (cosine_similarity(feature_vector_1.loc[input_query], feature_vector_1) + 1)
     else:
